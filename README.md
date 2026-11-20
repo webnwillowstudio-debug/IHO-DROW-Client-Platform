@@ -1,5 +1,6 @@
 # Intelligent House Owner: DROW Client Platform
 *An AYOK & AYOK Initiative*
+n**Live:** https://iho-drow-client-platform.vercel.app  ·  Team panel: https://iho-drow-client-platform.vercel.app/admin
 
 A website where clients fill the **DROW discovery form** (Dream Home + Resources) from their phone.
 Every submission is saved on **your server** and written into **Excel files** automatically.
