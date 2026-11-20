@@ -253,31 +253,18 @@ def validate_form():
     data = {
         "client_name": clean(f.get("client_name"), 120),
         "phone": clean(f.get("phone"), 30),
-        "email": clean(f.get("email"), 120),
-        "contact_method": pick(f.get("contact_method"), C.CONTACT_METHODS),
-        "current_city": clean(f.get("current_city"), 120),
         "project_location": clean(f.get("project_location"), 200),
         # Dream home
-        "bedrooms": number(f.get("bedrooms"), 0, 50, integer=True),
-        "bathrooms": number(f.get("bathrooms"), 0, 50, integer=True),
-        "floors": pick(f.get("floors"), C.FLOORS),
         "inside_amenities": multi("inside_amenities", C.INSIDE_AMENITIES, "inside_other"),
         "outer_amenities": multi("outer_amenities", C.OUTER_AMENITIES, "outer_other"),
-        "timeline": pick(f.get("timeline"), C.TIMELINES),
         "arch_style": pick(f.get("arch_style"), C.ARCH_STYLES),
         "design_notes": clean(f.get("design_notes"), 3000),
         # Resources
-        "land_status": pick(f.get("land_status"), C.LAND_STATUS),
         "plot_area": number(f.get("plot_area"), 0, 10_000_000),
         "plot_unit": pick(f.get("plot_unit"), C.AREA_UNITS),
-        "plot_shape": pick(f.get("plot_shape"), C.PLOT_SHAPES),
-        "plot_slope": pick(f.get("plot_slope"), C.PLOT_SLOPES),
-        "road_access": clean(f.get("road_access"), 200),
         "site_conditions": clean(f.get("site_conditions"), 3000),
         "budget_currency": pick(f.get("budget_currency"), C.CURRENCIES),
         "budget_amount": number(f.get("budget_amount"), 0, 1e13),
-        "budget_flex": pick(f.get("budget_flex"), C.BUDGET_FLEX),
-        "funding": pick(f.get("funding"), C.FUNDING),
         "reference_files": [],
     }
     if data["arch_style"] == "Other" and clean(f.get("arch_style_other")):
@@ -288,21 +275,12 @@ def validate_form():
     digits = "".join(ch for ch in data["phone"] if ch.isdigit())
     if not 7 <= len(digits) <= 15:
         e["phone"] = "Please enter a valid phone / WhatsApp number with country code."
-    if data["email"] and ("@" not in data["email"] or "." not in data["email"].split("@")[-1]):
-        e["email"] = "Please check your email address."
     if not data["project_location"]:
         e["project_location"] = "Please tell us where the house will be built."
-    for k in ("bedrooms", "bathrooms"):
-        if data[k] == "bad":
-            e[k] = "Please enter a number between 0 and 50."
     if not data["inside_amenities"] and not data["outer_amenities"]:
         e["amenities"] = "Please choose at least one amenity you want."
-    if not data["timeline"]:
-        e["timeline"] = "Please choose when you want the home completed."
     if not data["arch_style"]:
         e["arch_style"] = "Please choose a design style (or 'Not sure')."
-    if not data["land_status"]:
-        e["land_status"] = "Please tell us about your land."
     if data["plot_area"] == "bad":
         e["plot_area"] = "Please enter the plot area as a number."
     if data["plot_area"] not in (None, "bad") and not data["plot_unit"]:
@@ -370,9 +348,9 @@ def notify_team(row):
             msg.set_content(
                 f"New Intelligent House Owner enquiry\n\n"
                 f"Ref: {row['ref']}\nName: {d['client_name']}\nPhone: {d['phone']}\n"
-                f"Email: {d.get('email') or '-'}\nProject location: {d['project_location']}\n"
+                f"Project location: {d['project_location']}\n"
                 f"Budget: {d.get('budget_currency')} {d.get('budget_amount')}\n"
-                f"Timeline: {d.get('timeline')}\n\nOpen the admin panel to see everything."
+                f"Style: {d.get('arch_style')}\n\nOpen the admin panel to see everything."
             )
             with open(MASTER_XLSX, "rb") as fh:
                 msg.add_attachment(fh.read(), maintype="application",

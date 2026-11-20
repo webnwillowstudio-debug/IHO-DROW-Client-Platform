@@ -119,34 +119,16 @@
         {{ err('client_name') }}
       </div>
 
-      <div class="grid-2">
-        <div class="field {% if errors.phone %}has-error{% endif %}">
-          <label for="phone">Phone / WhatsApp <i>*</i></label>
-          <input id="phone" name="phone" type="tel" value="{{ v.get('phone','') }}" autocomplete="tel" required inputmode="tel" pattern="[+0-9 ()\-]{7,20}" placeholder="+91 98xxx xxxxx">
-          {{ err('phone') }}
-        </div>
-        <div class="field {% if errors.email %}has-error{% endif %}">
-          <label for="email">Email <span class="opt">optional</span></label>
-          <input id="email" name="email" type="email" value="{{ v.get('email','') }}" autocomplete="email" placeholder="you@example.com">
-          {{ err('email') }}
-        </div>
+      <div class="field {% if errors.phone %}has-error{% endif %}">
+        <label for="phone">Phone / WhatsApp <i>*</i></label>
+        <input id="phone" name="phone" type="tel" value="{{ v.get('phone','') }}" autocomplete="tel" required inputmode="tel" pattern="[+0-9 ()\-]{7,20}" placeholder="+91 98xxx xxxxx">
+        {{ err('phone') }}
       </div>
 
-      <div class="field">
-        <label>Best way to contact you</label>
-        {{ pills('contact_method', C.CONTACT_METHODS) }}
-      </div>
-
-      <div class="grid-2">
-        <div class="field">
-          <label for="current_city">Where do you live now? <span class="opt">optional</span></label>
-          <input id="current_city" name="current_city" value="{{ v.get('current_city','') }}" placeholder="e.g. Dubai, UAE">
-        </div>
-        <div class="field {% if errors.project_location %}has-error{% endif %}">
-          <label for="project_location">Where will the house be built? <i>*</i></label>
-          <input id="project_location" name="project_location" value="{{ v.get('project_location','') }}" required placeholder="e.g. Kakkanad, Kochi">
-          {{ err('project_location') }}
-        </div>
+      <div class="field {% if errors.project_location %}has-error{% endif %}">
+        <label for="project_location">Project location <i>*</i></label>
+        <input id="project_location" name="project_location" value="{{ v.get('project_location','') }}" required placeholder="Where will the house be built? e.g. Kakkanad, Kochi">
+        {{ err('project_location') }}
       </div>
     </fieldset>
 
@@ -155,38 +137,15 @@
       <legend class="step-head"><span class="badge">D</span><span><b>Dream Home</b><small>The home you dream of</small></span></legend>
 
       <h3 class="sub">1. Amenities</h3>
-      <div class="grid-3">
-        <div class="field {% if errors.bedrooms %}has-error{% endif %}">
-          <label for="bedrooms">Bedrooms</label>
-          <input id="bedrooms" name="bedrooms" type="number" min="0" max="50" inputmode="numeric" value="{{ v.get('bedrooms','') }}" placeholder="e.g. 4">
-          {{ err('bedrooms') }}
-        </div>
-        <div class="field {% if errors.bathrooms %}has-error{% endif %}">
-          <label for="bathrooms">Bathrooms</label>
-          <input id="bathrooms" name="bathrooms" type="number" min="0" max="50" inputmode="numeric" value="{{ v.get('bathrooms','') }}" placeholder="e.g. 4">
-          {{ err('bathrooms') }}
-        </div>
-        <div class="field">
-          <label for="floors">Floors</label>
-          {{ select('floors', C.FLOORS) }}
-        </div>
-      </div>
-
       <div class="field {% if errors.amenities %}has-error{% endif %}" id="amenities-field">
-        <label>Inside the home <span class="opt">tap all you want</span></label>
+        <label>Inside <span class="opt">tap all you want</span></label>
         {{ chips('inside_amenities', C.INSIDE_AMENITIES) }}
         <input class="other" name="inside_other" value="{{ v.get('inside_other','') }}" placeholder="Anything else inside? Separate with commas" maxlength="400">
 
-        <label class="mt">Outside the home <span class="opt">tap all you want</span></label>
+        <label class="mt">Outer <span class="opt">tap all you want</span></label>
         {{ chips('outer_amenities', C.OUTER_AMENITIES) }}
         <input class="other" name="outer_other" value="{{ v.get('outer_other','') }}" placeholder="Anything else outside? Separate with commas" maxlength="400">
         {{ err('amenities') }}
-      </div>
-
-      <div class="field {% if errors.timeline %}has-error{% endif %}">
-        <label>When do you want the home completed? <i>*</i></label>
-        {{ pills('timeline', C.TIMELINES, required=true) }}
-        {{ err('timeline') }}
       </div>
 
       <h3 class="sub">2. Designs</h3>
@@ -219,14 +178,8 @@
       <legend class="step-head"><span class="badge">R</span><span><b>Resources</b><small>What you have to build with</small></span></legend>
 
       <h3 class="sub">1. Land specifications</h3>
-      <div class="field {% if errors.land_status %}has-error{% endif %}">
-        <label>Your land <i>*</i></label>
-        {{ pills('land_status', C.LAND_STATUS, required=true) }}
-        {{ err('land_status') }}
-      </div>
-
       <div class="field {% if errors.plot_area %}has-error{% endif %}">
-        <label for="plot_area">Plot area</label>
+        <label for="plot_area">Plot area <span class="opt">optional</span></label>
         <div class="joined">
           <input id="plot_area" name="plot_area" type="number" min="0" step="any" inputmode="decimal" value="{{ v.get('plot_area','') }}" placeholder="e.g. 10">
           <select name="plot_unit" aria-label="Unit">
@@ -234,22 +187,6 @@
           </select>
         </div>
         {{ err('plot_area') }}
-      </div>
-
-      <div class="grid-2">
-        <div class="field">
-          <label for="plot_shape">Plot shape</label>
-          {{ select('plot_shape', C.PLOT_SHAPES) }}
-        </div>
-        <div class="field">
-          <label for="plot_slope">Is the land flat?</label>
-          {{ select('plot_slope', C.PLOT_SLOPES) }}
-        </div>
-      </div>
-
-      <div class="field">
-        <label for="road_access">Road access <span class="opt">optional</span></label>
-        <input id="road_access" name="road_access" value="{{ v.get('road_access','') }}" maxlength="200" placeholder="e.g. 12 ft road on the east side">
       </div>
 
       <div class="field">
@@ -270,15 +207,6 @@
         {{ err('budget_amount') }}
       </div>
 
-      <div class="field">
-        <label>How flexible is this budget?</label>
-        {{ pills('budget_flex', C.BUDGET_FLEX) }}
-      </div>
-
-      <div class="field">
-        <label for="funding">How will you fund the build?</label>
-        {{ select('funding', C.FUNDING) }}
-      </div>
     </fieldset>
 
     <!-- STEP 4 : REVIEW -------------------------------------------------- -->

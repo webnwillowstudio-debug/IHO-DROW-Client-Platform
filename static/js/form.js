@@ -46,27 +46,19 @@
       if (val('client_name').length < 2) bad.push([form.elements.client_name, 'Please enter your full name.']);
       var d = digits(val('phone'));
       if (d < 7 || d > 15) bad.push([form.elements.phone, 'Please enter a valid phone / WhatsApp number with country code.']);
-      var em = val('email');
-      if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) bad.push([form.elements.email, 'Please check your email address.']);
       if (!val('project_location')) bad.push([form.elements.project_location, 'Please tell us where the house will be built.']);
       return bad;
     },
     2: function () {
       var bad = [];
-      ['bedrooms', 'bathrooms'].forEach(function (n) {
-        var v = val(n);
-        if (v && (isNaN(v) || +v < 0 || +v > 50)) bad.push([form.elements[n], 'Please enter a number between 0 and 50.']);
-      });
       var any = checkedVals('inside_amenities').length + checkedVals('outer_amenities').length;
       if (!any && !val('inside_other') && !val('outer_other'))
         bad.push([document.getElementById('amenities-field'), 'Please choose at least one amenity you want.']);
-      if (!checkedVals('timeline').length) bad.push([$('input[name="timeline"]'), 'Please choose when you want the home completed.']);
       if (!val('arch_style')) bad.push([form.elements.arch_style, "Please choose a design style (or 'Not sure')."]);
       return bad;
     },
     3: function () {
       var bad = [];
-      if (!checkedVals('land_status').length) bad.push([$('input[name="land_status"]'), 'Please tell us about your land.']);
       var a = val('plot_area');
       if (a && (isNaN(a) || +a < 0)) bad.push([form.elements.plot_area, 'Please enter the plot area as a number.']);
       var b = num(val('budget_amount'));
@@ -295,25 +287,19 @@
     var area = val('plot_area') ? val('plot_area') + ' ' + val('plot_unit') : '';
     var sections = [
       ['About you', 1, [
-        ['Name', val('client_name')], ['Phone / WhatsApp', val('phone')], ['Email', val('email')],
-        ['Contact by', checkedVals('contact_method').join('')], ['Lives in', val('current_city')],
-        ['House location', val('project_location')]
+        ['Name', val('client_name')], ['Phone / WhatsApp', val('phone')],
+        ['Project location', val('project_location')]
       ]],
       ['D — Dream Home', 2, [
-        ['Bedrooms / Bathrooms', [val('bedrooms') || '-', val('bathrooms') || '-'].join(' / ')],
-        ['Floors', val('floors')],
         ['Inside', listWithOther('inside_amenities', 'inside_other')],
-        ['Outside', listWithOther('outer_amenities', 'outer_other')],
-        ['Completion', checkedVals('timeline').join('')], ['Style', style],
+        ['Outer', listWithOther('outer_amenities', 'outer_other')],
+        ['Style', style],
         ['References & notes', val('design_notes')],
         ['Files', picked.length ? picked.length + ' file(s) attached' : '']
       ]],
       ['R — Resources', 3, [
-        ['Land', checkedVals('land_status').join('')], ['Plot area', area],
-        ['Shape / slope', [val('plot_shape'), val('plot_slope')].filter(Boolean).join(' / ')],
-        ['Road access', val('road_access')], ['Site conditions', val('site_conditions')],
-        ['Budget', budgetWords.textContent || (val('budget_currency') + ' ' + val('budget_amount'))],
-        ['Flexibility', checkedVals('budget_flex').join('')], ['Funding', val('funding')]
+        ['Plot area', area], ['Plot details & site conditions', val('site_conditions')],
+        ['Budget', budgetWords.textContent || (val('budget_currency') + ' ' + val('budget_amount'))]
       ]]
     ];
     var html = sections.map(function (s) {

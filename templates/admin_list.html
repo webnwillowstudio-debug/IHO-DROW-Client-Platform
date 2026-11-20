@@ -38,7 +38,7 @@
   <div class="table-wrap card">
     <table class="table">
       <thead>
-        <tr><th>Ref</th><th>Client</th><th>Project location</th><th>Budget</th><th>Timeline</th><th>Style</th><th>Status</th><th>Submitted</th></tr>
+        <tr><th>Ref</th><th>Client</th><th>Project location</th><th>Budget</th><th>Plot area</th><th>Style</th><th>Status</th><th>Submitted</th></tr>
       </thead>
       <tbody>
         {% for r in rows %}{% set d = r.data %}
@@ -47,7 +47,7 @@
           <td>{{ d.client_name }}<br><small class="muted">{{ d.phone }}</small></td>
           <td>{{ d.project_location }}</td>
           <td class="nowrap">{{ d.budget_amount | money(d.budget_currency) }}</td>
-          <td>{{ d.timeline }}</td>
+          <td class="nowrap">{% if d.plot_area is not none %}{{ d.plot_area }} {{ d.plot_unit or '' }}{% endif %}</td>
           <td>{{ d.arch_style }}</td>
           <td><span class="status s-{{ r.status | lower | replace(' ', '-') }}">{{ r.status }}</span></td>
           <td class="nowrap"><small>{{ r._created_local }}</small></td>

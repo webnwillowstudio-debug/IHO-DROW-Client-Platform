@@ -93,32 +93,19 @@ COLUMNS = [
     ("Status", 16, lambda r, d: r["status"]),
     ("Client Name", 24, lambda r, d: d.get("client_name")),
     ("Phone / WhatsApp", 18, lambda r, d: d.get("phone")),
-    ("Email", 26, lambda r, d: d.get("email")),
-    ("Preferred Contact", 14, lambda r, d: d.get("contact_method")),
-    ("Lives In (now)", 20, lambda r, d: d.get("current_city")),
     ("Project Location", 24, lambda r, d: d.get("project_location")),
     # D - Dream Home
-    ("Bedrooms", 10, lambda r, d: d.get("bedrooms")),
-    ("Bathrooms", 10, lambda r, d: d.get("bathrooms")),
-    ("Floors", 14, lambda r, d: d.get("floors")),
     ("Inside Amenities", 45, lambda r, d: j(d.get("inside_amenities"))),
     ("Outer Amenities", 45, lambda r, d: j(d.get("outer_amenities"))),
-    ("Completion Timeline", 16, lambda r, d: d.get("timeline")),
     ("Architectural Style", 20, lambda r, d: d.get("arch_style")),
     ("Design References & Notes", 45, lambda r, d: d.get("design_notes")),
     ("Reference Files", 30, lambda r, d: j(d.get("reference_files"))),
     # R - Resources
-    ("Land Status", 20, lambda r, d: d.get("land_status")),
     ("Plot Area", 10, lambda r, d: d.get("plot_area")),
     ("Area Unit", 9, lambda r, d: d.get("plot_unit")),
-    ("Plot Shape", 16, lambda r, d: d.get("plot_shape")),
-    ("Plot Slope", 13, lambda r, d: d.get("plot_slope")),
-    ("Road Access", 22, lambda r, d: d.get("road_access")),
     ("Plot Details & Site Conditions", 45, lambda r, d: d.get("site_conditions")),
     ("Currency", 9, lambda r, d: d.get("budget_currency")),
     ("Estimated Total Budget", 18, lambda r, d: d.get("budget_amount")),
-    ("Budget Flexibility", 22, lambda r, d: d.get("budget_flex")),
-    ("Funding", 20, lambda r, d: d.get("funding")),
     # O / W - team
     ("O - Options (team)", 45, lambda r, d: r.get("options")),
     ("W - Way Forward (team)", 45, lambda r, d: r.get("way_forward")),
@@ -128,10 +115,10 @@ COLUMNS = [
 
 # group bands shown above the headers
 BANDS = [
-    ("CLIENT", 1, 9, PURPLE),
-    ("D - DREAM HOME", 10, 18, PURPLE),
-    ("R - RESOURCES", 19, 29, PURPLE),
-    ("O / W - OUR TEAM", 30, 33, GOLD),
+    ("CLIENT", 1, 6, PURPLE),
+    ("D - DREAM HOME", 7, 11, PURPLE),
+    ("R - RESOURCES", 12, 16, PURPLE),
+    ("O / W - OUR TEAM", 17, 20, GOLD),
 ]
 
 
@@ -290,17 +277,12 @@ def build_client(row, path):
     kv("Ref No.", row["ref"])
     kv("Client Name", d.get("client_name"))
     kv("Phone / WhatsApp", d.get("phone"))
-    kv("Email", d.get("email"))
-    kv("Preferred Contact", d.get("contact_method"))
-    kv("Lives In (now)", d.get("current_city"))
     kv("Project Location", d.get("project_location"))
     kv("Date", row["_created_local"])
     gap()
 
     band("D - DREAM HOME")
     sub("1. AMENITIES")
-    kv("Bedrooms / Bathrooms / Floors",
-       f"{d.get('bedrooms') or '-'} bed  /  {d.get('bathrooms') or '-'} bath  /  {d.get('floors') or '-'}")
     hdr_a = ws.cell(r, 1, "Inside")
     hdr_b = ws.cell(r, 2, "Outer")
     for c in (hdr_a, hdr_b):
@@ -318,7 +300,6 @@ def build_client(row, path):
             c.alignment = Alignment(indent=1, vertical="center")
         ws.row_dimensions[r].height = 19
         r += 1
-    kv("Completion Timeline", d.get("timeline"))
     sub("2. DESIGNS")
     kv("Preferred Architectural Style", d.get("arch_style"))
     kv("Design References & Notes", "")
@@ -329,19 +310,14 @@ def build_client(row, path):
 
     band("R - RESOURCES")
     sub("1. LAND SPECIFICATIONS")
-    kv("Land Status", d.get("land_status"))
     area = d.get("plot_area")
     kv("Plot Area (Cent / Sq.ft)", f"{area} {d.get('plot_unit') or ''}".strip() if area else "")
-    kv("Plot Shape / Slope", " / ".join(x for x in [d.get("plot_shape"), d.get("plot_slope")] if x))
-    kv("Road Access", d.get("road_access"))
     kv("Plot Details & Site Conditions", "")
     block(d.get("site_conditions"))
     sub("2. BUDGET")
     amt = d.get("budget_amount")
     kv("Estimated Total Budget",
        f"{d.get('budget_currency') or ''} {amt:,.0f}".strip() if isinstance(amt, (int, float)) else "")
-    kv("Budget Flexibility", d.get("budget_flex"))
-    kv("Funding", d.get("funding"))
     gap()
 
     band("O - OPTIONS")
