@@ -115,10 +115,13 @@
     var signUrl = form.getAttribute('data-upload-urls');
     if (signUrl && picked.length) {
       e.preventDefault();
+      sending.open('Uploading your files', 'Starting...', 0);
       uploadDirect(signUrl).then(function () {
+        sending.open('Saving your details', 'Almost done...', 100);
         fileInput.disabled = true; // files are already stored; don't send them again
         HTMLFormElement.prototype.submit.call(form);
       }, function () {
+        sending.close();
         submitBtn.disabled = false;
         submitBtn.textContent = 'Send my DROW';
         fileErr.hidden = false;
@@ -126,12 +129,71 @@
         show(1, false);
         fileErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
+    } else {
+      // no progress events for a normal form post, so the bar just moves on its own
+      sending.open(picked.length ? 'Uploading your files' : 'Sending your DROW',
+                   picked.length ? 'This can take a minute on mobile data' : 'Just a moment...', null);
     }
   });
+
+  /* ---------------- "sending" screen ---------------- */
+  var sending = (function () {
+    var box = document.createElement('div');
+    box.className = 'sending';
+    box.setAttribute('role', 'alertdialog');
+    box.setAttribute('aria-live', 'polite');
+    box.setAttribute('aria-label', 'Sending your form');
+    box.hidden = true;
+    box.innerHTML =
+      '<div class="sending-card">' +
+        '<div class="sending-spin" aria-hidden="true"><svg viewBox="0 0 64 64" width="44" height="44">' +
+          '<path d="M14 31 32 16l18 15" fill="none" stroke="#E6C15A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>' +
+          '<path d="M19 29v18h26V29" fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="round"/></svg></div>' +
+        '<p class="sending-title"></p>' +
+        '<div class="sending-bar"><span></span></div>' +
+        '<p class="sending-sub"></p>' +
+        '<p class="sending-note">Please keep this page open.</p>' +
+      '</div>';
+    document.body.appendChild(box);
+    var title = box.querySelector('.sending-title'), sub = box.querySelector('.sending-sub');
+    var bar = box.querySelector('.sending-bar'), fill = bar.querySelector('span');
+    return {
+      open: function (t, s, pct) {
+        title.textContent = t; sub.textContent = s;
+        bar.classList.toggle('indeterminate', pct === null);
+        if (pct !== null) fill.style.width = Math.max(3, pct) + '%';
+        box.hidden = false;
+        document.documentElement.classList.add('is-sending');
+      },
+      close: function () { box.hidden = true; document.documentElement.classList.remove('is-sending'); }
+    };
+  })();
+
+  // coming back with the browser's Back button: don't leave the screen stuck
+  window.addEventListener('pageshow', function (ev) {
+    if (ev.persisted) {
+      sending.close();
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Send my DROW';
+    }
+  });
+
+  function mb(n) { return (n / 1048576).toFixed(1) + ' MB'; }
 
   // Cloud mode: ask the server for signed URLs, then send each file straight to storage
   function uploadDirect(signUrl) {
     $$('input[name="uploaded"]').forEach(function (i) { i.remove(); });
+    var total = picked.reduce(function (a, f) { return a + f.size; }, 0) || 1;
+    var sent = picked.map(function () { return 0; });
+    var done = 0;
+    function report() {
+      var bytes = sent.reduce(function (a, b) { return a + b; }, 0);
+      var pct = Math.min(99, Math.round(bytes / total * 100));
+      sending.open('Uploading your files',
+        done + ' of ' + picked.length + ' file' + (picked.length > 1 ? 's' : '') + ' done  ·  ' +
+        mb(bytes) + ' of ' + mb(total) + '  ·  ' + pct + '%', pct);
+    }
+    report();
     return fetch(signUrl, {
       method: 'POST',
       credentials: 'same-origin',
@@ -139,21 +201,26 @@
       body: JSON.stringify({ files: picked.map(function (f) { return { name: f.name, size: f.size }; }) })
     }).then(function (r) { if (!r.ok) throw new Error('sign'); return r.json(); })
       .then(function (res) {
-        var done = 0;
         return Promise.all(picked.map(function (f, i) {
           var slot = res.files[i];
-          if (!slot) return null;
-          return fetch(slot.url, {
-            method: 'PUT',
-            headers: { 'Content-Type': f.type || 'application/octet-stream', 'x-upsert': 'false' },
-            body: f
-          }).then(function (r) {
-            if (!r.ok) throw new Error('upload');
-            done++;
-            submitBtn.textContent = 'Uploading ' + done + '/' + picked.length + '...';
-            var h = document.createElement('input');
-            h.type = 'hidden'; h.name = 'uploaded'; h.value = slot.path;
-            form.appendChild(h);
+          if (!slot) { sent[i] = f.size; done++; report(); return null; }
+          return new Promise(function (resolve, reject) {
+            // XMLHttpRequest (not fetch) so we can show upload progress
+            var x = new XMLHttpRequest();
+            x.open('PUT', slot.url);
+            x.setRequestHeader('Content-Type', f.type || 'application/octet-stream');
+            x.setRequestHeader('x-upsert', 'false');
+            x.upload.onprogress = function (ev) { if (ev.lengthComputable) { sent[i] = ev.loaded; report(); } };
+            x.onload = function () {
+              if (x.status < 200 || x.status >= 300) return reject(new Error('upload'));
+              sent[i] = f.size; done++; report();
+              var h = document.createElement('input');
+              h.type = 'hidden'; h.name = 'uploaded'; h.value = slot.path;
+              form.appendChild(h);
+              resolve();
+            };
+            x.onerror = x.onabort = function () { reject(new Error('upload')); };
+            x.send(f);
           });
         }));
       });

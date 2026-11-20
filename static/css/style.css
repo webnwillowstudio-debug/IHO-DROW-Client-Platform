@@ -310,3 +310,44 @@ dl { margin: 0; }
 @media (prefers-reduced-motion: reduce) {
   .splash *, .splash { animation-duration: 1ms !important; animation-delay: 0s !important; transition-duration: 1ms !important; }
 }
+
+/* ---------- Sending / uploading screen ---------- */
+.sending {
+  position: fixed; inset: 0; z-index: 900;
+  display: grid; place-items: center; padding: 16px;
+  background: rgba(46, 35, 71, .55);
+  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  animation: sd-fade .2s ease-out;
+}
+.sending[hidden] { display: none; }
+.is-sending body { overflow: hidden; }
+.sending-card {
+  width: 100%; max-width: 360px; padding: 28px 24px 22px;
+  background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow);
+  text-align: center;
+}
+.sending-spin {
+  position: relative; width: 76px; height: 76px; margin: 0 auto 16px;
+  display: grid; place-items: center; border-radius: 50%; background: var(--purple);
+}
+.sending-spin::after {
+  content: ""; position: absolute; inset: -6px; border-radius: 50%;
+  border: 3px solid var(--purple-100); border-top-color: var(--gold);
+  animation: sd-spin 1s linear infinite;
+}
+.sending-title { margin: 0 0 14px; font-size: 18px; font-weight: 600; color: var(--purple); }
+.sending-bar { height: 8px; border-radius: 99px; background: var(--purple-100); overflow: hidden; }
+.sending-bar span {
+  display: block; height: 100%; width: 3%; border-radius: inherit;
+  background: linear-gradient(90deg, var(--purple-500), var(--gold));
+  transition: width .3s ease;
+}
+.sending-bar.indeterminate span { width: 40% !important; animation: sd-slide 1.3s ease-in-out infinite; }
+.sending-sub { margin: 10px 0 0; font-size: 13px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.sending-note { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
+@keyframes sd-spin  { to { transform: rotate(360deg); } }
+@keyframes sd-fade  { from { opacity: 0; } }
+@keyframes sd-slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+@media (prefers-reduced-motion: reduce) {
+  .sending-spin::after, .sending-bar.indeterminate span { animation-duration: 3s; }
+}
