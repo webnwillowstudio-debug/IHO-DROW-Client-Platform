@@ -136,6 +136,9 @@ CREATE TABLE IF NOT EXISTS submissions (
     team_notes   TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_sub_created ON submissions(created_at);
+-- Keep the table private: no access through Supabase's public Data API.
+-- The app connects as the database owner, which RLS does not restrict.
+ALTER TABLE submissions ENABLE ROW LEVEL SECURITY;
 """
 
 

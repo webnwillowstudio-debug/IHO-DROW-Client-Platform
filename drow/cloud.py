@@ -19,11 +19,13 @@ class SupabaseStorage:
         self._bucket_ready = False
 
     def _call(self, method, path, body=None):
+        headers = {"apikey": self.key, "Content-Type": "application/json"}
+        if not self.key.startswith("sb_"):  # legacy service_role JWT also goes in Authorization
+            headers["Authorization"] = f"Bearer {self.key}"
         req = urllib.request.Request(
             self.base + path, method=method,
             data=None if body is None else json.dumps(body).encode(),
-            headers={"Authorization": f"Bearer {self.key}", "apikey": self.key,
-                     "Content-Type": "application/json"},
+            headers=headers,
         )
         with urllib.request.urlopen(req, timeout=15) as r:
             raw = r.read()
@@ -40,13 +42,13 @@ class SupabaseStorage:
         try:
             self._call("POST", "/bucket", {"id": self.bucket, "name": self.bucket, "public": False})
         except urllib.error.HTTPError as e:
-            if e.code not in (400, 409):  # 400/409 = already exists
+            if b"exists" not in e.read():  # "BucketAlreadyExists" is fine
                 raise
         self._bucket_ready = True
 
     def signed_upload_url(self, path):
         self.ensure_bucket()
-        res = self._call("POST", f"/object/upload/sign/{self.bucket}/{self._q(path)}")
+        res = self._call("POST", f"/object/upload/sign/{self.bucket}/{self._q(path)}", {})
         return self.base + res["url"]
 
     def signed_download_url(self, path, seconds=300):
