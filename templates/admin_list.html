@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}DROW submissions{% endblock %}
+{% block body_class %}admin{% endblock %}
+{% block brand_href %}{{ url_for('admin_list') }}{% endblock %}
+{% block topbar_right %}
+  <nav class="top-nav">
+    <a class="btn small gold" href="{{ url_for('admin_excel') }}">Download Excel</a>
+    <a class="link" href="{{ url_for('admin_logout') }}">Sign out</a>
+  </nav>
+{% endblock %}
+{% block content %}
+<section class="wrap admin-wrap">
+  {% with msgs = get_flashed_messages() %}{% for m in msgs %}<div class="flash">{{ m }}</div>{% endfor %}{% endwith %}
+
+  <div class="admin-head">
+    <div>
+      <p class="eyebrow">Team panel</p>
+      <h1 class="h2">DROW submissions</h1>
+    </div>
+    <a class="link" href="{{ url_for('form') }}" target="_blank" rel="noopener">Open client form ↗</a>
+  </div>
+
+  <div class="stats">
+    <a class="stat {% if not status %}on{% endif %}" href="{{ url_for('admin_list', q=q) }}"><b>{{ total }}</b><span>All</span></a>
+    {% for s in C.STATUSES %}
+      <a class="stat {% if status == s %}on{% endif %}" href="{{ url_for('admin_list', status=s, q=q) }}"><b>{{ counts.get(s, 0) }}</b><span>{{ s }}</span></a>
+    {% endfor %}
+  </div>
+
+  <form class="search" method="get">
+    {% if status %}<input type="hidden" name="status" value="{{ status }}">{% endif %}
+    <input name="q" value="{{ q }}" placeholder="Search name, phone, ref, location..." aria-label="Search">
+    <button class="btn small" type="submit">Search</button>
+    {% if q %}<a class="link" href="{{ url_for('admin_list', status=status) }}">Clear</a>{% endif %}
+  </form>
+
+  {% if rows %}
+  <div class="table-wrap card">
+    <table class="table">
+      <thead>
+        <tr><th>Ref</th><th>Client</th><th>Project location</th><th>Budget</th><th>Timeline</th><th>Style</th><th>Status</th><th>Submitted</th></tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}{% set d = r.data %}
+        <tr onclick="location.href='{{ url_for('admin_detail', sid=r.id) }}'">
+          <td><a href="{{ url_for('admin_detail', sid=r.id) }}"><b>{{ r.ref }}</b></a></td>
+          <td>{{ d.client_name }}<br><small class="muted">{{ d.phone }}</small></td>
+          <td>{{ d.project_location }}</td>
+          <td class="nowrap">{{ d.budget_amount | money(d.budget_currency) }}</td>
+          <td>{{ d.timeline }}</td>
+          <td>{{ d.arch_style }}</td>
+          <td><span class="status s-{{ r.status | lower | replace(' ', '-') }}">{{ r.status }}</span></td>
+          <td class="nowrap"><small>{{ r._created_local }}</small></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="card empty">
+      <p><b>No submissions {% if q or status %}match this filter{% else %}yet{% endif %}.</b></p>
+      <p class="muted">Share the client form link or QR code. New submissions appear here and in the Excel file automatically.</p>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

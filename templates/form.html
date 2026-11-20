@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+
+{% macro err(name) -%}
+  {% if errors.get(name) %}<p class="field-error" role="alert">{{ errors[name] }}</p>{% endif %}
+{%- endmacro %}
+
+{% macro pills(name, options, required=false) -%}
+  <div class="pills" role="radiogroup">
+    {% for o in options %}
+      <label class="pill">
+        <input type="radio" name="{{ name }}" value="{{ o }}" {% if v.get(name) == o %}checked{% endif %} {% if required %}required{% endif %}>
+        <span>{{ o }}</span>
+      </label>
+    {% endfor %}
+  </div>
+{%- endmacro %}
+
+{% macro chips(name, options) -%}
+  <div class="chips">
+    {% set chosen = v.getlist(name) %}
+    {% for o in options %}
+      <label class="chip">
+        <input type="checkbox" name="{{ name }}" value="{{ o }}" {% if o in chosen %}checked{% endif %}>
+        <span>{{ o }}</span>
+      </label>
+    {% endfor %}
+  </div>
+{%- endmacro %}
+
+{% macro select(name, options, placeholder="Select", required=false) -%}
+  <select id="{{ name }}" name="{{ name }}" {% if required %}required{% endif %}>
+    <option value="">{{ placeholder }}</option>
+    {% for o in options %}<option {% if v.get(name) == o %}selected{% endif %}>{{ o }}</option>{% endfor %}
+  </select>
+{%- endmacro %}
+
+{% block splash %}
+<div class="splash" id="splash" aria-hidden="true">
+  <div class="splash-in">
+    <svg class="splash-logo" viewBox="0 0 64 64" width="96" height="96">
+      <rect class="sp-tile" width="64" height="64" rx="16" fill="#4B2A7B"/>
+      <path class="sp-roof" d="M14 31 32 16l18 15" fill="none" stroke="#E6C15A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" pathLength="1"/>
+      <path class="sp-walls" d="M19 29v18h26V29" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linejoin="round" pathLength="1"/>
+      <rect class="sp-door" x="28" y="34" width="8" height="13" rx="1.5" fill="#E6C15A"/>
+    </svg>
+    <p class="splash-title">Intelligent House Owner</p>
+    <span class="splash-line"></span>
+    <p class="splash-tag">Save Time. Save Money. Save Effort.</p>
+  </div>
+</div>
+<script>
+(function () {
+  var s = document.getElementById('splash');
+  var seen = false;
+  try { seen = sessionStorage.getItem('iho_splash') === '1'; sessionStorage.setItem('iho_splash', '1'); } catch (e) {}
+  if (seen) { s.remove(); return; }
+  document.documentElement.classList.add('splash-on');
+  function done() {
+    if (!s.isConnected) return;
+    s.classList.add('splash-out');
+    document.documentElement.classList.remove('splash-on');
+    setTimeout(function () { s.remove(); }, 600);
+  }
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  setTimeout(done, reduce ? 900 : 2600);
+  s.addEventListener('click', done);
+  document.addEventListener('keydown', done, { once: true });
+})();
+</script>
+{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="wrap narrow">
+    <p class="eyebrow">Your first step</p>
+    <h1>Begin Your DROW</h1>
+    <span class="rule"></span>
+    <p class="lead">Tell us about your dream home and the resources you have. It takes only a few minutes, and our expert team takes it from there.</p>
+
+    <ol class="drow-strip" aria-label="The DROW framework">
+      <li class="you"><b>D</b><span>Dream Home</span><em>You share</em></li>
+      <li class="you"><b>R</b><span>Resources</span><em>You share</em></li>
+      <li><b>O</b><span>Options</span><em>Our team</em></li>
+      <li><b>W</b><span>Way Forward</span><em>Together</em></li>
+    </ol>
+  </div>
+</section>
+
+<section class="wrap narrow form-shell">
+  {% if errors %}
+    <div class="alert" role="alert" id="error-summary">
+      <strong>Please check a few answers.</strong>
+      <ul>{% for k, m in errors.items() %}<li>{{ m }}</li>{% endfor %}</ul>
+      <p class="hint">If you attached reference files, please add them again.</p>
+    </div>
+  {% endif %}
+
+  <div class="stepper" aria-hidden="true">
+    <div class="stepper-bar"><span id="stepper-fill"></span></div>
+    <ol>
+      <li data-step-dot="1"><i>1</i><span>About you</span></li>
+      <li data-step-dot="2"><i>D</i><span>Dream Home</span></li>
+      <li data-step-dot="3"><i>R</i><span>Resources</span></li>
+      <li data-step-dot="4"><i>✓</i><span>Review</span></li>
+    </ol>
+  </div>
+
+  <form id="drow-form" action="{{ url_for('submit') }}" method="post" enctype="multipart/form-data" novalidate{% if direct_upload %} data-upload-urls="{{ url_for('upload_urls') }}"{% endif %}>
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div class="hp" aria-hidden="true"><label>Website <input name="website" tabindex="-1" autocomplete="off"></label></div>
+
+    <!-- STEP 1 ---------------------------------------------------------- -->
+    <fieldset class="step card" data-step="1">
+      <legend class="step-head"><span class="badge">1</span><span><b>About you</b><small>So our team can reach you</small></span></legend>
+
+      <div class="field {% if errors.client_name %}has-error{% endif %}">
+        <label for="client_name">Full name <i>*</i></label>
+        <input id="client_name" name="client_name" value="{{ v.get('client_name','') }}" autocomplete="name" required minlength="2" maxlength="120" placeholder="e.g. Rahul Menon">
+        {{ err('client_name') }}
+      </div>
+
+      <div class="grid-2">
+        <div class="field {% if errors.phone %}has-error{% endif %}">
+          <label for="phone">Phone / WhatsApp <i>*</i></label>
+          <input id="phone" name="phone" type="tel" value="{{ v.get('phone','') }}" autocomplete="tel" required inputmode="tel" pattern="[+0-9 ()\-]{7,20}" placeholder="+91 98xxx xxxxx">
+          {{ err('phone') }}
+        </div>
+        <div class="field {% if errors.email %}has-error{% endif %}">
+          <label for="email">Email <span class="opt">optional</span></label>
+          <input id="email" name="email" type="email" value="{{ v.get('email','') }}" autocomplete="email" placeholder="you@example.com">
+          {{ err('email') }}
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Best way to contact you</label>
+        {{ pills('contact_method', C.CONTACT_METHODS) }}
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label for="current_city">Where do you live now? <span class="opt">optional</span></label>
+          <input id="current_city" name="current_city" value="{{ v.get('current_city','') }}" placeholder="e.g. Dubai, UAE">
+        </div>
+        <div class="field {% if errors.project_location %}has-error{% endif %}">
+          <label for="project_location">Where will the house be built? <i>*</i></label>
+          <input id="project_location" name="project_location" value="{{ v.get('project_location','') }}" required placeholder="e.g. Kakkanad, Kochi">
+          {{ err('project_location') }}
+        </div>
+      </div>
+    </fieldset>
+
+    <!-- STEP 2 : DREAM HOME --------------------------------------------- -->
+    <fieldset class="step card" data-step="2">
+      <legend class="step-head"><span class="badge">D</span><span><b>Dream Home</b><small>The home you dream of</small></span></legend>
+
+      <h3 class="sub">1. Amenities</h3>
+      <div class="grid-3">
+        <div class="field {% if errors.bedrooms %}has-error{% endif %}">
+          <label for="bedrooms">Bedrooms</label>
+          <input id="bedrooms" name="bedrooms" type="number" min="0" max="50" inputmode="numeric" value="{{ v.get('bedrooms','') }}" placeholder="e.g. 4">
+          {{ err('bedrooms') }}
+        </div>
+        <div class="field {% if errors.bathrooms %}has-error{% endif %}">
+          <label for="bathrooms">Bathrooms</label>
+          <input id="bathrooms" name="bathrooms" type="number" min="0" max="50" inputmode="numeric" value="{{ v.get('bathrooms','') }}" placeholder="e.g. 4">
+          {{ err('bathrooms') }}
+        </div>
+        <div class="field">
+          <label for="floors">Floors</label>
+          {{ select('floors', C.FLOORS) }}
+        </div>
+      </div>
+
+      <div class="field {% if errors.amenities %}has-error{% endif %}" id="amenities-field">
+        <label>Inside the home <span class="opt">tap all you want</span></label>
+        {{ chips('inside_amenities', C.INSIDE_AMENITIES) }}
+        <input class="other" name="inside_other" value="{{ v.get('inside_other','') }}" placeholder="Anything else inside? Separate with commas" maxlength="400">
+
+        <label class="mt">Outside the home <span class="opt">tap all you want</span></label>
+        {{ chips('outer_amenities', C.OUTER_AMENITIES) }}
+        <input class="other" name="outer_other" value="{{ v.get('outer_other','') }}" placeholder="Anything else outside? Separate with commas" maxlength="400">
+        {{ err('amenities') }}
+      </div>
+
+      <div class="field {% if errors.timeline %}has-error{% endif %}">
+        <label>When do you want the home completed? <i>*</i></label>
+        {{ pills('timeline', C.TIMELINES, required=true) }}
+        {{ err('timeline') }}
+      </div>
+
+      <h3 class="sub">2. Designs</h3>
+      <div class="field {% if errors.arch_style %}has-error{% endif %}">
+        <label for="arch_style">Preferred architectural style <i>*</i></label>
+        {{ select('arch_style', C.ARCH_STYLES, 'Choose a style', required=true) }}
+        <input class="other" id="arch_style_other" name="arch_style_other" value="{{ v.get('arch_style_other','') }}" placeholder="Describe the style you like" maxlength="80" hidden>
+        {{ err('arch_style') }}
+      </div>
+
+      <div class="field">
+        <label for="design_notes">Design references &amp; notes <span class="opt">optional</span></label>
+        <textarea id="design_notes" name="design_notes" rows="4" maxlength="3000" placeholder="Paste Instagram / Pinterest / YouTube links, or describe what you love (colours, materials, a house you saw...)">{{ v.get('design_notes','') }}</textarea>
+      </div>
+
+      <div class="field">
+        <label for="references">Upload reference photos or plans <span class="opt">optional &middot; up to {{ max_files }} files, {{ max_mb }} MB each</span></label>
+        <label class="drop" for="references">
+          <input id="references" name="references" type="file" multiple accept=".jpg,.jpeg,.png,.webp,.heic,.pdf,image/*,application/pdf">
+          <span class="drop-icon" aria-hidden="true">＋</span>
+          <span class="drop-text"><b>Tap to add photos or PDFs</b><small>House photos you like, sketches, land documents</small></span>
+        </label>
+        <ul class="file-list" id="file-list"></ul>
+        <p class="field-error" id="file-error" hidden></p>
+      </div>
+    </fieldset>
+
+    <!-- STEP 3 : RESOURCES ---------------------------------------------- -->
+    <fieldset class="step card" data-step="3">
+      <legend class="step-head"><span class="badge">R</span><span><b>Resources</b><small>What you have to build with</small></span></legend>
+
+      <h3 class="sub">1. Land specifications</h3>
+      <div class="field {% if errors.land_status %}has-error{% endif %}">
+        <label>Your land <i>*</i></label>
+        {{ pills('land_status', C.LAND_STATUS, required=true) }}
+        {{ err('land_status') }}
+      </div>
+
+      <div class="field {% if errors.plot_area %}has-error{% endif %}">
+        <label for="plot_area">Plot area</label>
+        <div class="joined">
+          <input id="plot_area" name="plot_area" type="number" min="0" step="any" inputmode="decimal" value="{{ v.get('plot_area','') }}" placeholder="e.g. 10">
+          <select name="plot_unit" aria-label="Unit">
+            {% for u in C.AREA_UNITS %}<option {% if v.get('plot_unit', 'Cent') == u %}selected{% endif %}>{{ u }}</option>{% endfor %}
+          </select>
+        </div>
+        {{ err('plot_area') }}
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label for="plot_shape">Plot shape</label>
+          {{ select('plot_shape', C.PLOT_SHAPES) }}
+        </div>
+        <div class="field">
+          <label for="plot_slope">Is the land flat?</label>
+          {{ select('plot_slope', C.PLOT_SLOPES) }}
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="road_access">Road access <span class="opt">optional</span></label>
+        <input id="road_access" name="road_access" value="{{ v.get('road_access','') }}" maxlength="200" placeholder="e.g. 12 ft road on the east side">
+      </div>
+
+      <div class="field">
+        <label for="site_conditions">Plot details &amp; site conditions <span class="opt">optional</span></label>
+        <textarea id="site_conditions" name="site_conditions" rows="3" maxlength="3000" placeholder="Anything we should know: existing building, trees, water-logging, neighbours, Google Maps link...">{{ v.get('site_conditions','') }}</textarea>
+      </div>
+
+      <h3 class="sub">2. Budget</h3>
+      <div class="field {% if errors.budget_amount %}has-error{% endif %}">
+        <label for="budget_amount">Estimated total budget <i>*</i></label>
+        <div class="joined">
+          <select name="budget_currency" aria-label="Currency">
+            {% for c in C.CURRENCIES %}<option {% if v.get('budget_currency', 'INR') == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+          </select>
+          <input id="budget_amount" name="budget_amount" inputmode="numeric" required value="{{ v.get('budget_amount','') }}" placeholder="e.g. 60,00,000">
+        </div>
+        <p class="hint" id="budget-words"></p>
+        {{ err('budget_amount') }}
+      </div>
+
+      <div class="field">
+        <label>How flexible is this budget?</label>
+        {{ pills('budget_flex', C.BUDGET_FLEX) }}
+      </div>
+
+      <div class="field">
+        <label for="funding">How will you fund the build?</label>
+        {{ select('funding', C.FUNDING) }}
+      </div>
+    </fieldset>
+
+    <!-- STEP 4 : REVIEW -------------------------------------------------- -->
+    <fieldset class="step card" data-step="4">
+      <legend class="step-head"><span class="badge">✓</span><span><b>Review &amp; send</b><small>Check your answers</small></span></legend>
+      <div id="review" class="review"></div>
+
+      <div class="next-box">
+        <p class="eyebrow">What happens next</p>
+        <ol>
+          <li><b>1</b>You share your Dream Home and Resources through this form.</li>
+          <li><b>2</b>Our expert team prepares the best Options for you.</li>
+          <li><b>3</b>We update you, and together choose the Way Forward.</li>
+        </ol>
+      </div>
+
+      <div class="field {% if errors.consent %}has-error{% endif %}">
+        <label class="check">
+          <input type="checkbox" name="consent" value="yes" required {% if v.get('consent') %}checked{% endif %}>
+          <span>I agree that the Intelligent House Owner team can store these details and contact me about my home.</span>
+        </label>
+        {{ err('consent') }}
+      </div>
+    </fieldset>
+
+    <div class="actions">
+      <button type="button" class="btn ghost" id="back-btn">Back</button>
+      <button type="button" class="btn" id="next-btn">Continue</button>
+      <button type="submit" class="btn gold" id="submit-btn">Send my DROW</button>
+    </div>
+    <p class="saved-note" id="saved-note" hidden>Your answers are saved on this device until you send them.</p>
+  </form>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/form.js') }}" defer></script>
+{% endblock %}

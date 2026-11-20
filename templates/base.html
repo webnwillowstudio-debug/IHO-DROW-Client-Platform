@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Begin Your DROW{% endblock %} | Intelligent House Owner</title>
+  <meta name="description" content="Share your dream home and resources with the Intelligent House Owner team. It takes only a few minutes.">
+  <meta name="theme-color" content="#4B2A7B">
+  <link rel="icon" href="{{ url_for('static', filename='img/logo.svg') }}" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script>document.documentElement.classList.replace('no-js','js')</script>
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  {% block splash %}{% endblock %}
+  <header class="topbar">
+    <div class="wrap topbar-in">
+      <a class="brand" href="{% block brand_href %}{{ url_for('form') }}{% endblock %}">
+        <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="" width="38" height="38">
+        <span>
+          <strong>Intelligent House Owner</strong>
+          <small>An AYOK &amp; AYOK Initiative</small>
+        </span>
+      </a>
+      {% block topbar_right %}{% endblock %}
+    </div>
+  </header>
+
+  <main>{% block content %}{% endblock %}</main>
+
+  <footer class="footer">
+    <p class="footer-tag">Save Time. Save Money. Save Effort.</p>
+    <p>Intelligent House Owner &middot; An AYOK &amp; AYOK Initiative</p>
+  </footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

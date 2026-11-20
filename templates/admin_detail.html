@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}{{ r.ref }} - {{ d.client_name }}{% endblock %}
+{% block body_class %}admin{% endblock %}
+{% block brand_href %}{{ url_for('admin_list') }}{% endblock %}
+{% block topbar_right %}
+  <nav class="top-nav">
+    <a class="btn small gold" href="{{ url_for('admin_client_excel', sid=r.id) }}">Client Excel</a>
+    <a class="link" href="{{ url_for('admin_logout') }}">Sign out</a>
+  </nav>
+{% endblock %}
+
+{% macro row(label, value) -%}
+  <div class="kv"><dt>{{ label }}</dt><dd>{% if value %}{{ value }}{% else %}<span class="muted">-</span>{% endif %}</dd></div>
+{%- endmacro %}
+
+{% block content %}
+<section class="wrap admin-wrap">
+  <a class="link" href="{{ url_for('admin_list') }}">← All submissions</a>
+  {% with msgs = get_flashed_messages() %}{% for m in msgs %}<div class="flash">{{ m }}</div>{% endfor %}{% endwith %}
+
+  <div class="admin-head">
+    <div>
+      <p class="eyebrow">{{ r.ref }} &middot; {{ r._created_local }}</p>
+      <h1 class="h2">{{ d.client_name }}</h1>
+      <p class="muted">
+        <a href="tel:{{ d.phone|replace(' ', '') }}">{{ d.phone }}</a>
+        {% set wa = d.phone|replace(' ', '')|replace('+', '')|replace('-', '')|replace('(', '')|replace(')', '') %}
+        &middot; <a href="https://wa.me/{{ wa }}" target="_blank" rel="noopener">WhatsApp ↗</a>
+        {% if d.email %}&middot; <a href="mailto:{{ d.email }}">{{ d.email }}</a>{% endif %}
+      </p>
+    </div>
+    <span class="status big s-{{ r.status | lower | replace(' ', '-') }}">{{ r.status }}</span>
+  </div>
+
+  <div class="detail-grid">
+    <div>
+      <div class="card">
+        <h2 class="band">Client</h2>
+        <dl>
+          {{ row('Preferred contact', d.contact_method) }}
+          {{ row('Lives in (now)', d.current_city) }}
+          {{ row('Project location', d.project_location) }}
+        </dl>
+      </div>
+
+      <div class="card">
+        <h2 class="band">D — Dream Home</h2>
+        <h3 class="sub">1. Amenities</h3>
+        <dl>
+          {{ row('Bedrooms', d.bedrooms) }}
+          {{ row('Bathrooms', d.bathrooms) }}
+          {{ row('Floors', d.floors) }}
+        </dl>
+        <div class="two-lists">
+          <div><h4>Inside</h4>{% if d.inside_amenities %}<ul class="tags">{% for a in d.inside_amenities %}<li>{{ a }}</li>{% endfor %}</ul>{% else %}<p class="muted">-</p>{% endif %}</div>
+          <div><h4>Outer</h4>{% if d.outer_amenities %}<ul class="tags">{% for a in d.outer_amenities %}<li>{{ a }}</li>{% endfor %}</ul>{% else %}<p class="muted">-</p>{% endif %}</div>
+        </div>
+        <dl>{{ row('Completion timeline', d.timeline) }}</dl>
+        <h3 class="sub">2. Designs</h3>
+        <dl>
+          {{ row('Preferred architectural style', d.arch_style) }}
+          <div class="kv"><dt>Design references &amp; notes</dt><dd class="pre">{{ d.design_notes | linkify if d.design_notes else '-' }}</dd></div>
+        </dl>
+        {% if d.reference_files %}
+          <h4>Reference files</h4>
+          <ul class="files">
+            {% for fname in d.reference_files %}
+              <li><a href="{{ url_for('admin_file', sid=r.id, name=fname) }}" target="_blank" rel="noopener">
+                {% if fname.rsplit('.',1)[-1].lower() in ['jpg','jpeg','png','webp'] %}
+                  <img src="{{ url_for('admin_file', sid=r.id, name=fname) }}" alt="" loading="lazy">
+                {% else %}<span class="file-ico">PDF</span>{% endif %}
+                <small>{{ fname.rsplit("/",1)[-1][7:] }}</small></a></li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+
+      <div class="card">
+        <h2 class="band">R — Resources</h2>
+        <h3 class="sub">1. Land specifications</h3>
+        <dl>
+          {{ row('Land status', d.land_status) }}
+          {{ row('Plot area', (d.plot_area|string ~ ' ' ~ (d.plot_unit or '')) if d.plot_area is not none else '') }}
+          {{ row('Plot shape', d.plot_shape) }}
+          {{ row('Slope', d.plot_slope) }}
+          {{ row('Road access', d.road_access) }}
+          <div class="kv"><dt>Plot details &amp; site conditions</dt><dd class="pre">{{ d.site_conditions | linkify if d.site_conditions else '-' }}</dd></div>
+        </dl>
+        <h3 class="sub">2. Budget</h3>
+        <dl>
+          {{ row('Estimated total budget', d.budget_amount | money(d.budget_currency)) }}
+          {{ row('Flexibility', d.budget_flex) }}
+          {{ row('Funding', d.funding) }}
+        </dl>
+      </div>
+    </div>
+
+    <form class="card team-card" method="post">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <h2 class="band gold-band">Our team</h2>
+      <div class="field">
+        <label for="status">Status</label>
+        <select id="status" name="status">
+          {% for s in C.STATUSES %}<option {% if s == r.status %}selected{% endif %}>{{ s }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="options">O — Options</label>
+        <textarea id="options" name="options" rows="7" placeholder="Option 1: ...&#10;Option 2: ...">{{ r.options }}</textarea>
+      </div>
+      <div class="field">
+        <label for="way_forward">W — Way Forward</label>
+        <textarea id="way_forward" name="way_forward" rows="6" placeholder="Chosen option, execution roadmap, next meeting...">{{ r.way_forward }}</textarea>
+      </div>
+      <div class="field">
+        <label for="team_notes">Internal notes</label>
+        <textarea id="team_notes" name="team_notes" rows="3" placeholder="Calls, follow-ups...">{{ r.team_notes }}</textarea>
+      </div>
+      <button class="btn wide" type="submit">Save &amp; update Excel</button>
+      <p class="hint center">Last updated {{ r._updated_local }}</p>
+    </form>
+  </div>
+
+  <form class="danger" method="post" action="{{ url_for('admin_delete', sid=r.id) }}" onsubmit="return confirm('Delete {{ r.ref }} permanently? This also removes it from the Excel file.');">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <button class="link danger-link" type="submit">Delete this submission</button>
+  </form>
+</section>
+{% endblock %}

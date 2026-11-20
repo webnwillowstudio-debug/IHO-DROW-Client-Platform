@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Thank you{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="wrap narrow center">
+    <div class="tick" aria-hidden="true">✓</div>
+    <p class="eyebrow">Your DROW is with us</p>
+    <h1>Thank you{% if name %}, {{ name }}{% endif %}!</h1>
+    <span class="rule"></span>
+    <p class="lead">We have received your Dream Home and Resources. Our expert team will study them and get back to you with the best Options.</p>
+    {% if ref %}
+      <p class="ref-box">Your reference number<br><strong>{{ ref }}</strong><small>Please keep it for when we call you.</small></p>
+    {% endif %}
+  </div>
+</section>
+<section class="wrap narrow">
+  <div class="card next-box">
+    <p class="eyebrow">What happens next</p>
+    <ol>
+      <li class="done"><b>✓</b>You shared your Dream Home and Resources.</li>
+      <li><b>2</b>Our expert team prepares the best Options for you.</li>
+      <li><b>3</b>We update you, and together choose the Way Forward.</li>
+    </ol>
+    <p class="center muted">Your dream home, the intelligent way.<br>Our expert team will keep you informed at every step.</p>
+  </div>
+</section>
+<script>try { localStorage.removeItem('drow-draft-v1'); } catch (e) {}</script>
+{% endblock %}
