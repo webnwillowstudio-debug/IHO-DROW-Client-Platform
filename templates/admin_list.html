@@ -49,7 +49,12 @@
           <td class="nowrap">{{ d.budget_amount | money(d.budget_currency) }}</td>
           <td class="nowrap">{% if d.plot_area is not none %}{{ d.plot_area }} {{ d.plot_unit or '' }}{% endif %}</td>
           <td>{{ d.arch_style }}</td>
-          <td><span class="status s-{{ r.status | lower | replace(' ', '-') }}">{{ r.status }}</span></td>
+          <td><span class="status s-{{ r.status | lower | replace(' ', '-') }}">{{ r.status }}</span>
+            {% if r.client_message and r.ask_reply %}<br>
+              {% if r.client_reply and r.reply_for == r.message_at %}
+                <span class="reply-tag {{ 'yes' if r.client_reply == 'YES' else 'no' }}">Replied {{ r.client_reply }}</span>
+              {% else %}<span class="reply-tag wait">Awaiting reply</span>{% endif %}
+            {% endif %}</td>
           <td class="nowrap"><small>{{ r._created_local }}</small></td>
         </tr>
         {% endfor %}

@@ -374,6 +374,27 @@ def notify_team(row):
         threading.Thread(target=send, daemon=True).start()
 
 
+def notify_reply(row):
+    """Optional email to the team when a client answers a message (needs SMTP_* set)."""
+    host, to = os.environ.get("SMTP_HOST"), os.environ.get("NOTIFY_EMAIL")
+    if not host or not to:
+        return
+    try:
+        msg = EmailMessage()
+        msg["Subject"] = f"Client replied {row['client_reply']}: {row['ref']} - {row['client_name']}"
+        msg["From"] = os.environ.get("SMTP_FROM") or os.environ.get("SMTP_USER", "")
+        msg["To"] = to
+        msg.set_content(f"{row['client_name']} ({row['phone']}) replied {row['client_reply']} "
+                        "to your message on the status page.\n\nOpen the admin panel to follow up.")
+        with smtplib.SMTP(host, int(os.environ.get("SMTP_PORT", "587")), timeout=20) as s:
+            s.starttls()
+            if os.environ.get("SMTP_USER"):
+                s.login(os.environ["SMTP_USER"], os.environ.get("SMTP_PASSWORD", ""))
+            s.send_message(msg)
+    except Exception as exc:
+        app.logger.warning("Reply email failed: %s", exc)
+
+
 # ---------------------------------------------------------------- client side
 def form_context(values=None, errors=None):
     return dict(C=C, v=values if values is not None else MultiDict(), errors=errors or {}, max_files=MAX_FILES, max_mb=MAX_FILE_MB,
@@ -438,27 +459,53 @@ def phone_tail(phone, n=4):
     return "".join(ch for ch in (phone or "") if ch.isdigit())[-n:]
 
 
+def render_status(row=None, ref="", error=None, just_replied=False):
+    label, note = C.CLIENT_STATUS.get(row["status"], (row["status"], "")) if row else ("", "")
+    replied = bool(row and row.get("client_reply") and row.get("reply_for") == row.get("message_at"))
+    can_reply = bool(row and row.get("ask_reply") and row.get("client_message") and not replied)
+    return render_template("status.html", ref=ref, row=row, error=error, label=label, note=note,
+                           steps=C.STATUSES[:4], C=C, replied=replied, can_reply=can_reply,
+                           just_replied=just_replied)
+
+
 @app.route("/status", methods=["GET", "POST"])
 def status():
     """Client looks up their DROW: reference number + last 4 digits of their phone.
     Refs are sequential, so the phone check stops people reading each other's updates."""
     ref = clean(request.values.get("ref"), 40).upper().replace(" ", "")
+    if request.method == "GET":
+        return render_status(ref=ref)
+    check_csrf()
+    if rate_limited(("status", client_ip()), 10, 600):
+        abort(429)
     tail = "".join(ch for ch in request.form.get("phone4", "") if ch.isdigit())
-    row, error = None, None
-    if request.method == "POST":
-        check_csrf()
-        if rate_limited(("status", client_ip()), 10, 600):
-            abort(429)
-        if re.fullmatch(r"\d{1,6}", ref):  # typed only the number part
-            ref = f"{REF_PREFIX}-{datetime.now().year}-{int(ref):04d}"
-        found = store.get_by_ref(ref) if ref else None
-        if found and len(tail) == 4 and hmac.compare_digest(tail, phone_tail(found["phone"])):
-            row = found
-        else:
-            error = "We could not find a DROW with that reference number and phone. Please check both and try again."
-    label, note = C.CLIENT_STATUS.get(row["status"], (row["status"], "")) if row else ("", "")
-    return render_template("status.html", ref=ref, row=row, error=error, label=label, note=note,
-                           steps=C.STATUSES[:4], C=C)
+    if re.fullmatch(r"\d{1,6}", ref):  # typed only the number part
+        ref = f"{REF_PREFIX}-{datetime.now().year}-{int(ref):04d}"
+    found = store.get_by_ref(ref) if ref else None
+    if found and len(tail) == 4 and hmac.compare_digest(tail, phone_tail(found["phone"])):
+        session["status_ref"] = found["ref"]  # lets this visitor answer the message
+        return render_status(found, ref)
+    return render_status(ref=ref, error="We could not find a DROW with that reference number and phone. "
+                                        "Please check both and try again.")
+
+
+@app.post("/status/reply")
+def status_reply():
+    """Client taps YES / NO under the team's message. Only works right after a
+    successful lookup in the same browser session."""
+    check_csrf()
+    if rate_limited(("reply", client_ip()), 10, 600):
+        abort(429)
+    ref = session.get("status_ref")
+    row = store.get_by_ref(ref) if ref else None
+    if not row:
+        return redirect(url_for("status"))
+    answer = {"yes": "YES", "no": "NO"}.get(request.form.get("answer", "").lower())
+    replied = row.get("client_reply") and row.get("reply_for") == row.get("message_at")
+    if answer and row.get("ask_reply") and row.get("client_message") and not replied:
+        store.set_reply(row["id"], answer)
+        notify_reply(store.get(row["id"]))
+    return render_status(store.get(row["id"]), ref, just_replied=bool(answer))
 
 
 @app.get("/healthz")
@@ -528,6 +575,7 @@ def admin_detail(sid):
             clean(request.form.get("way_forward"), 8000),
             clean(request.form.get("team_notes"), 4000),
             clean(request.form.get("client_message"), 6000),
+            bool(request.form.get("ask_reply")),
         )
         sync_excel(sid)
         flash("Saved. The Excel files are updated.")

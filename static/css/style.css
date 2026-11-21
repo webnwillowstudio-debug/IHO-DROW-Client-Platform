@@ -381,3 +381,23 @@ dl { margin: 0; }
 .msg-body { white-space: pre-line; overflow-wrap: anywhere; font-size: 14.5px; line-height: 1.65; color: var(--ink); }
 .client-msg select { margin-bottom: 8px; }
 .status-link { margin-top: 14px; font-size: 14px; }
+.reply-box { margin-top: 18px; padding-top: 16px; border-top: 1px dashed var(--line); }
+.reply-q { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--purple); }
+.reply-btns { display: grid; gap: 10px; }
+.reply-btns .btn { width: 100%; justify-content: center; }
+.reply-done { display: grid; gap: 2px; margin-top: 18px; padding: 14px 16px; border-radius: 12px; font-size: 14px; }
+.reply-done.yes { background: #E3F4EA; color: #1F6B41; }
+.reply-done.no { background: #EEECEF; color: #5C566A; }
+.reply-done strong { font-size: 15px; }
+.reply-done small { font-size: 12px; opacity: .8; }
+/* team panel */
+.reply-flag { display: grid; gap: 2px; margin: 0 0 14px; padding: 12px 14px; border-radius: 12px; font-size: 13px; }
+.reply-flag.yes { background: #E3F4EA; color: #1F6B41; }
+.reply-flag.no { background: #FDECEA; color: #7A1E17; }
+.reply-flag.wait { background: #FFF3D6; color: #8A6512; }
+.reply-flag strong { font-size: 15px; }
+.reply-tag { display: inline-block; margin-top: 4px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.reply-tag.yes { background: #E3F4EA; color: #1F6B41; }
+.reply-tag.no { background: #FDECEA; color: #7A1E17; }
+.reply-tag.wait { background: #FFF3D6; color: #8A6512; }
+.check.small { font-size: 13px; margin-top: 8px; }

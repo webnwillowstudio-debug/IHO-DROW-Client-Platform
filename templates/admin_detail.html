@@ -90,12 +90,26 @@
         </select>
       </div>
       <div class="field client-msg">
+        {% set replied = r.client_reply and r.reply_for == r.message_at %}
+        {% if r.client_message and r.ask_reply and replied %}
+          <div class="reply-flag {{ 'yes' if r.client_reply == 'YES' else 'no' }}">
+            <strong>{% if r.client_reply == 'YES' %}✓ Client replied YES{% else %}Client replied NO{% endif %}</strong>
+            <span>{{ r.reply_at | localtime }}, on the status page</span>
+          </div>
+        {% elif r.client_message and r.ask_reply %}
+          <div class="reply-flag wait">
+            <strong>Waiting for the client's reply</strong>
+            <span>{% if r.client_reply %}Earlier they replied {{ r.client_reply }} ({{ r.reply_at | localtime }}) to a previous message.{% else %}No reply yet.{% endif %}</span>
+          </div>
+        {% endif %}
         <label for="client_message">Message to client <span class="opt">the client sees this on the status page</span></label>
         <select id="msg-template" aria-label="Insert a ready-made message">
           <option value="">Insert a ready-made message...</option>
           {% for name, text in C.MESSAGE_TEMPLATES %}<option value="{{ loop.index0 }}">{{ name }}</option>{% endfor %}
         </select>
         <textarea id="client_message" name="client_message" rows="10" maxlength="6000" placeholder="Write an update for the client. Leave empty to show only the status.">{{ r.client_message or '' }}</textarea>
+        <label class="check small"><input type="checkbox" id="ask_reply" name="ask_reply" value="1" {% if r.ask_reply %}checked{% endif %}>
+          <span>Ask the client to reply <b>YES</b> / <b>No</b> (buttons under the message)</span></label>
         <p class="hint">Client checks it at <b>{{ url_for('status', _external=True) }}</b> with <b>{{ r.ref }}</b> + last 4 digits of their phone.{% if r.message_at %} Message last changed {{ r.message_at | localtime }}.{% endif %}</p>
       </div>
       <div class="field">
@@ -127,7 +141,10 @@
   t.addEventListener('change', function () {
     var text = texts[+t.value];
     if (t.value === '' || text === undefined) return;
-    if (!box.value.trim() || confirm('Replace the current message with this template?')) { box.value = text; box.focus(); }
+    if (!box.value.trim() || confirm('Replace the current message with this template?')) {
+      box.value = text; box.focus();
+      if (/reply\s+.?YES/i.test(text)) document.getElementById('ask_reply').checked = true;
+    }
     t.value = '';
   });
 })();

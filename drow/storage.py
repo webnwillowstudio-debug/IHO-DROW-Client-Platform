@@ -29,6 +29,12 @@ def now_iso():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def now_iso_precise():
+    # message_at also identifies *which* message a client reply answers, so two
+    # edits in the same second must still get different values
+    return datetime.now(timezone.utc).isoformat(timespec="microseconds")
+
+
 class Store:
     def __init__(self, db_path, ref_prefix="IHO"):
         self.db_path = db_path
@@ -36,7 +42,7 @@ class Store:
         with self.conn() as c:
             c.executescript(SCHEMA)
             have = {r["name"] for r in c.execute("PRAGMA table_info(submissions)")}
-            for col in ("client_message", "message_at"):
+            for col in ('client_message', 'message_at', 'ask_reply', 'client_reply', 'reply_at', 'reply_for'):
                 if col not in have:
                     c.execute(f"ALTER TABLE submissions ADD COLUMN {col} TEXT NOT NULL DEFAULT ''")
 
@@ -75,7 +81,7 @@ class Store:
                 (json.dumps(data, ensure_ascii=False), sid),
             )
 
-    def update_team(self, sid, status, options, way_forward, team_notes, client_message=None):
+    def update_team(self, sid, status, options, way_forward, team_notes, client_message=None, ask_reply=None):
         ts = now_iso()
         with self.conn() as c:
             c.execute(
@@ -83,17 +89,27 @@ class Store:
                 " WHERE id=?",
                 (status, options, way_forward, team_notes, ts, sid),
             )
+            if ask_reply is not None:
+                c.execute("UPDATE submissions SET ask_reply=? WHERE id=?", ("1" if ask_reply else "", sid))
             if client_message is not None:
                 # message_at only moves when the text actually changes
                 c.execute(
                     "UPDATE submissions SET message_at = CASE WHEN client_message <> ? THEN ? ELSE message_at END,"
                     " client_message=? WHERE id=?",
-                    (client_message, ts, client_message, sid),
+                    (client_message, now_iso_precise(), client_message, sid),
                 )
 
     def delete(self, sid):
         with self.conn() as c:
             c.execute("DELETE FROM submissions WHERE id=?", (sid,))
+
+    def set_reply(self, sid, reply):
+        """Client's answer to the current message (YES / NO), stamped with which message it answers."""
+        with self.conn() as c:
+            c.execute(
+                "UPDATE submissions SET client_reply=?, reply_at=?, reply_for=message_at WHERE id=?",
+                (reply, now_iso(), sid),
+            )
 
     # ---- reads ------------------------------------------------------------
     @staticmethod
@@ -150,6 +166,10 @@ CREATE TABLE IF NOT EXISTS submissions (
 CREATE INDEX IF NOT EXISTS idx_sub_created ON submissions(created_at);
 ALTER TABLE submissions ADD COLUMN IF NOT EXISTS client_message TEXT NOT NULL DEFAULT '';
 ALTER TABLE submissions ADD COLUMN IF NOT EXISTS message_at TEXT NOT NULL DEFAULT '';
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS ask_reply TEXT NOT NULL DEFAULT '';
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS client_reply TEXT NOT NULL DEFAULT '';
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS reply_at TEXT NOT NULL DEFAULT '';
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS reply_for TEXT NOT NULL DEFAULT '';
 -- Keep the table private: no access through Supabase's public Data API.
 -- The app connects as the database owner, which RLS does not restrict.
 ALTER TABLE submissions ENABLE ROW LEVEL SECURITY;
@@ -200,7 +220,7 @@ class PgStore(Store):
             c.execute("UPDATE submissions SET data_json=%s WHERE id=%s",
                       (json.dumps(data, ensure_ascii=False), sid))
 
-    def update_team(self, sid, status, options, way_forward, team_notes, client_message=None):
+    def update_team(self, sid, status, options, way_forward, team_notes, client_message=None, ask_reply=None):
         ts = now_iso()
         with self.conn() as c:
             c.execute(
@@ -208,16 +228,26 @@ class PgStore(Store):
                 " WHERE id=%s",
                 (status, options, way_forward, team_notes, ts, sid),
             )
+            if ask_reply is not None:
+                c.execute("UPDATE submissions SET ask_reply=%s WHERE id=%s", ("1" if ask_reply else "", sid))
             if client_message is not None:
                 c.execute(
                     "UPDATE submissions SET message_at = CASE WHEN client_message <> %s THEN %s ELSE message_at END,"
                     " client_message=%s WHERE id=%s",
-                    (client_message, ts, client_message, sid),
+                    (client_message, now_iso_precise(), client_message, sid),
                 )
 
     def delete(self, sid):
         with self.conn() as c:
             c.execute("DELETE FROM submissions WHERE id=%s", (sid,))
+
+    def set_reply(self, sid, reply):
+        """Client's answer to the current message (YES / NO), stamped with which message it answers."""
+        with self.conn() as c:
+            c.execute(
+                "UPDATE submissions SET client_reply=%s, reply_at=%s, reply_for=message_at WHERE id=%s",
+                (reply, now_iso(), sid),
+            )
 
     def get(self, sid):
         with self.conn() as c:

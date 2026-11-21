@@ -58,6 +58,29 @@
     {% if row.client_message %}
       {% if row.message_at %}<p class="msg-date">{{ row.message_at | localtime }}</p>{% endif %}
       <div class="msg-body">{{ row.client_message }}</div>
+
+      {% if can_reply %}
+      <form class="reply-box" method="post" action="{{ url_for('status_reply') }}">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <p class="reply-q">Your reply</p>
+        <div class="reply-btns">
+          <button class="btn gold" type="submit" name="answer" value="yes">YES, let's proceed</button>
+          <button class="btn ghost" type="submit" name="answer" value="no"
+                  onclick="return confirm('Send NO to our team? You can still contact us later.');">No, thank you</button>
+        </div>
+      </form>
+      {% elif replied %}
+      <div class="reply-done {{ 'yes' if row.client_reply == 'YES' else 'no' }}" role="status">
+        {% if row.client_reply == 'YES' %}
+          <strong>✓ You replied YES</strong>
+          <span>{% if just_replied %}Thank you! {% endif %}Our team will contact you shortly to arrange the next step.</span>
+        {% else %}
+          <strong>You replied: No, thank you</strong>
+          <span>Thank you for letting us know. We wish you all the very best.</span>
+        {% endif %}
+        <small>{{ row.reply_at | localtime }}</small>
+      </div>
+      {% endif %}
     {% else %}
       <p class="muted">No message yet. Our team will post updates for you here. You can check back any time.</p>
     {% endif %}

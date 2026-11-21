@@ -111,6 +111,7 @@ COLUMNS = [
     ("W - Way Forward (team)", 45, lambda r, d: r.get("way_forward")),
     ("Team Notes", 35, lambda r, d: r.get("team_notes")),
     ("Message to Client", 50, lambda r, d: r.get("client_message")),
+    ("Client Reply", 14, lambda r, d: r.get("client_reply") if r.get("client_reply") and r.get("reply_for") == r.get("message_at") else ""),
     ("Last Updated", 18, lambda r, d: r["_updated_local"]),
 ]
 
@@ -119,7 +120,7 @@ BANDS = [
     ("CLIENT", 1, 6, PURPLE),
     ("D - DREAM HOME", 7, 11, PURPLE),
     ("R - RESOURCES", 12, 16, PURPLE),
-    ("O / W - OUR TEAM", 17, 21, GOLD),
+    ("O / W - OUR TEAM", 17, 22, GOLD),
 ]
 
 
@@ -333,6 +334,8 @@ def build_client(row, path):
     if row.get("client_message"):
         kv("Message to Client", "")
         block(row.get("client_message"))
+        if row.get("client_reply") and row.get("reply_for") == row.get("message_at"):
+            kv("Client Reply", row.get("client_reply"))
     gap()
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=2)
     c = ws.cell(r, 1, "DROW Discovery Framework  -  Intelligent House Owner  -  An AYOK & AYOK Initiative  -  Confidential")
