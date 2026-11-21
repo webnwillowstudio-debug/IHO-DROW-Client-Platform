@@ -153,6 +153,9 @@ def local_time(iso):
     return dt.strftime("%d %b %Y, %I:%M %p")
 
 
+app.add_template_filter(lambda iso: local_time(iso) if iso else "", "localtime")
+
+
 def with_local(row):
     row["_created_local"] = local_time(row["created_at"])
     row["_updated_local"] = local_time(row["updated_at"])
@@ -431,6 +434,33 @@ def thanks():
     return render_template("thanks.html", ref=session.get("last_ref"), name=session.get("last_name"))
 
 
+def phone_tail(phone, n=4):
+    return "".join(ch for ch in (phone or "") if ch.isdigit())[-n:]
+
+
+@app.route("/status", methods=["GET", "POST"])
+def status():
+    """Client looks up their DROW: reference number + last 4 digits of their phone.
+    Refs are sequential, so the phone check stops people reading each other's updates."""
+    ref = clean(request.values.get("ref"), 40).upper().replace(" ", "")
+    tail = "".join(ch for ch in request.form.get("phone4", "") if ch.isdigit())
+    row, error = None, None
+    if request.method == "POST":
+        check_csrf()
+        if rate_limited(("status", client_ip()), 10, 600):
+            abort(429)
+        if re.fullmatch(r"\d{1,6}", ref):  # typed only the number part
+            ref = f"{REF_PREFIX}-{datetime.now().year}-{int(ref):04d}"
+        found = store.get_by_ref(ref) if ref else None
+        if found and len(tail) == 4 and hmac.compare_digest(tail, phone_tail(found["phone"])):
+            row = found
+        else:
+            error = "We could not find a DROW with that reference number and phone. Please check both and try again."
+    label, note = C.CLIENT_STATUS.get(row["status"], (row["status"], "")) if row else ("", "")
+    return render_template("status.html", ref=ref, row=row, error=error, label=label, note=note,
+                           steps=C.STATUSES[:4], C=C)
+
+
 @app.get("/healthz")
 def healthz():
     return {"ok": True}
@@ -497,6 +527,7 @@ def admin_detail(sid):
             clean(request.form.get("options"), 8000),
             clean(request.form.get("way_forward"), 8000),
             clean(request.form.get("team_notes"), 4000),
+            clean(request.form.get("client_message"), 6000),
         )
         sync_excel(sid)
         flash("Saved. The Excel files are updated.")

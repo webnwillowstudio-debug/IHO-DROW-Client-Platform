@@ -9,7 +9,8 @@
     <span class="rule"></span>
     <p class="lead">We have received your Dream Home and Resources. Our expert team will study them and get back to you with the best Options.</p>
     {% if ref %}
-      <p class="ref-box">Your reference number<br><strong>{{ ref }}</strong><small>Please keep it for when we call you.</small></p>
+      <p class="ref-box">Your reference number<br><strong>{{ ref }}</strong><small>Please keep it. Use it to check your status any time.</small></p>
+      <p><a class="btn" href="{{ url_for('status', ref=ref) }}">Check my status</a></p>
     {% endif %}
   </div>
 </section>

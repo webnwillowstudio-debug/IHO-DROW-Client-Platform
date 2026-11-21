@@ -105,3 +105,37 @@ STATUSES = [
     "Way forward agreed",
     "Closed",
 ]
+
+
+# What the client sees on the status page for each team status
+CLIENT_STATUS = {
+    "New": ("Received", "We have received your DROW. Our team will review it soon."),
+    "Under review": ("Under review", "Our technical team is studying your Dream and Resources."),
+    "Options shared": ("Options shared", "We have shared design options with you."),
+    "Way forward agreed": ("Way forward agreed", "We have agreed the way forward together."),
+    "Closed": ("Closed", "This enquiry is closed. Thank you for choosing Intelligent House Owner."),
+}
+
+# Ready-made messages the team can drop into "Message to client" and then edit
+MESSAGE_TEMPLATES = [
+    ("Resources gap - confirm before site visit", """Dear Sir,
+
+As per our standard process, the next step is to schedule a site visit by our architect.
+
+However, based on our preliminary analysis of your Dream and the Resources you've shared, we noticed that your proposed home (approximately 4,500-5,000 sq. ft.) may not be achievable within your current resources.
+
+Before proceeding with the site visit, we would like to confirm one important point.
+
+You may choose either to:
+
+• Align your dream with your current resources, or
+• Enhance your resources to achieve your dream.
+
+If you're willing to proceed with either of these, simply reply "YES".
+
+Our architect will visit your site and present the best possible design options based on your Dream and Resources. You can then choose the option that best suits your priorities. We will also prepare a rough conceptual plan for your selected option.
+
+This entire process, including the site visit, option presentation, and rough conceptual plan, is complimentary.
+
+If neither is an option, we completely understand. Thank you for considering Intelligent House Owner. We sincerely appreciate the opportunity and wish you all the very best."""),
+]

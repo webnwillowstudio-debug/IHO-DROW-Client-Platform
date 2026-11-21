@@ -35,6 +35,10 @@ class Store:
         self.ref_prefix = ref_prefix
         with self.conn() as c:
             c.executescript(SCHEMA)
+            have = {r["name"] for r in c.execute("PRAGMA table_info(submissions)")}
+            for col in ("client_message", "message_at"):
+                if col not in have:
+                    c.execute(f"ALTER TABLE submissions ADD COLUMN {col} TEXT NOT NULL DEFAULT ''")
 
     @contextmanager
     def conn(self):
@@ -71,13 +75,21 @@ class Store:
                 (json.dumps(data, ensure_ascii=False), sid),
             )
 
-    def update_team(self, sid, status, options, way_forward, team_notes):
+    def update_team(self, sid, status, options, way_forward, team_notes, client_message=None):
+        ts = now_iso()
         with self.conn() as c:
             c.execute(
                 "UPDATE submissions SET status=?, options=?, way_forward=?, team_notes=?, updated_at=?"
                 " WHERE id=?",
-                (status, options, way_forward, team_notes, now_iso(), sid),
+                (status, options, way_forward, team_notes, ts, sid),
             )
+            if client_message is not None:
+                # message_at only moves when the text actually changes
+                c.execute(
+                    "UPDATE submissions SET message_at = CASE WHEN client_message <> ? THEN ? ELSE message_at END,"
+                    " client_message=? WHERE id=?",
+                    (client_message, ts, client_message, sid),
+                )
 
     def delete(self, sid):
         with self.conn() as c:
@@ -136,6 +148,8 @@ CREATE TABLE IF NOT EXISTS submissions (
     team_notes   TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_sub_created ON submissions(created_at);
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS client_message TEXT NOT NULL DEFAULT '';
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS message_at TEXT NOT NULL DEFAULT '';
 -- Keep the table private: no access through Supabase's public Data API.
 -- The app connects as the database owner, which RLS does not restrict.
 ALTER TABLE submissions ENABLE ROW LEVEL SECURITY;
@@ -186,13 +200,20 @@ class PgStore(Store):
             c.execute("UPDATE submissions SET data_json=%s WHERE id=%s",
                       (json.dumps(data, ensure_ascii=False), sid))
 
-    def update_team(self, sid, status, options, way_forward, team_notes):
+    def update_team(self, sid, status, options, way_forward, team_notes, client_message=None):
+        ts = now_iso()
         with self.conn() as c:
             c.execute(
                 "UPDATE submissions SET status=%s, options=%s, way_forward=%s, team_notes=%s, updated_at=%s"
                 " WHERE id=%s",
-                (status, options, way_forward, team_notes, now_iso(), sid),
+                (status, options, way_forward, team_notes, ts, sid),
             )
+            if client_message is not None:
+                c.execute(
+                    "UPDATE submissions SET message_at = CASE WHEN client_message <> %s THEN %s ELSE message_at END,"
+                    " client_message=%s WHERE id=%s",
+                    (client_message, ts, client_message, sid),
+                )
 
     def delete(self, sid):
         with self.conn() as c:

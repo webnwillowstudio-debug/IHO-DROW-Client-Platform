@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Check your DROW status{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="wrap narrow center">
+    <p class="eyebrow">Track your DROW</p>
+    <h1>Check your status</h1>
+    <span class="rule"></span>
+    <p class="lead">Enter your reference number to see where your DROW stands and read messages from our technical team.</p>
+  </div>
+</section>
+
+<section class="wrap narrow status-shell">
+  {% if not row %}
+  <form class="card status-form" method="post" action="{{ url_for('status') }}" novalidate>
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    {% if error %}<div class="alert" role="alert">{{ error }}</div>{% endif %}
+    <div class="field">
+      <label for="ref">Reference number <i>*</i></label>
+      <input id="ref" name="ref" value="{{ ref }}" required autocomplete="off" autocapitalize="characters"
+             placeholder="e.g. IHO-2026-0001" maxlength="40">
+      <p class="hint">You got it on screen after sending the form.</p>
+    </div>
+    <div class="field">
+      <label for="phone4">Last 4 digits of your phone number <i>*</i></label>
+      <input id="phone4" name="phone4" required inputmode="numeric" autocomplete="off" pattern="[0-9]{4}"
+             maxlength="4" placeholder="e.g. 4567">
+      <p class="hint">The phone / WhatsApp number you gave in the form. This keeps your details private.</p>
+    </div>
+    <button class="btn gold wide" type="submit">Check status</button>
+  </form>
+  {% else %}
+  <div class="card status-card">
+    <p class="eyebrow">{{ row.ref }}</p>
+    <h2 class="h2">Hello {{ row.client_name.split(' ')[0] }}</h2>
+
+    <div class="status-now s-{{ row.status | lower | replace(' ', '-') }}">
+      <span>Current status</span>
+      <strong>{{ label }}</strong>
+      <small>{{ note }}</small>
+    </div>
+
+    {% if row.status != 'Closed' %}
+    {% set cur = steps.index(row.status) if row.status in steps else 0 %}
+    <ol class="track" aria-label="Progress">
+      {% for s in steps %}
+        <li class="{% if loop.index0 < cur %}done{% elif loop.index0 == cur %}now{% endif %}">
+          <i>{% if loop.index0 < cur %}✓{% else %}{{ loop.index }}{% endif %}</i>
+          <span>{{ C.CLIENT_STATUS[s][0] }}</span>
+        </li>
+      {% endfor %}
+    </ol>
+    {% endif %}
+  </div>
+
+  <div class="card msg-card">
+    <h3 class="msg-head">Message from our technical team</h3>
+    {% if row.client_message %}
+      {% if row.message_at %}<p class="msg-date">{{ row.message_at | localtime }}</p>{% endif %}
+      <div class="msg-body">{{ row.client_message }}</div>
+    {% else %}
+      <p class="muted">No message yet. Our team will post updates for you here. You can check back any time.</p>
+    {% endif %}
+  </div>
+
+  <p class="center"><a class="link" href="{{ url_for('status') }}">Check another reference number</a></p>
+  {% endif %}
+</section>
+{% endblock %}

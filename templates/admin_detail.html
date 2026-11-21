@@ -89,6 +89,15 @@
           {% for s in C.STATUSES %}<option {% if s == r.status %}selected{% endif %}>{{ s }}</option>{% endfor %}
         </select>
       </div>
+      <div class="field client-msg">
+        <label for="client_message">Message to client <span class="opt">the client sees this on the status page</span></label>
+        <select id="msg-template" aria-label="Insert a ready-made message">
+          <option value="">Insert a ready-made message...</option>
+          {% for name, text in C.MESSAGE_TEMPLATES %}<option value="{{ loop.index0 }}">{{ name }}</option>{% endfor %}
+        </select>
+        <textarea id="client_message" name="client_message" rows="10" maxlength="6000" placeholder="Write an update for the client. Leave empty to show only the status.">{{ r.client_message or '' }}</textarea>
+        <p class="hint">Client checks it at <b>{{ url_for('status', _external=True) }}</b> with <b>{{ r.ref }}</b> + last 4 digits of their phone.{% if r.message_at %} Message last changed {{ r.message_at | localtime }}.{% endif %}</p>
+      </div>
       <div class="field">
         <label for="options">O — Options</label>
         <textarea id="options" name="options" rows="7" placeholder="Option 1: ...&#10;Option 2: ...">{{ r.options }}</textarea>
@@ -111,4 +120,16 @@
     <button class="link danger-link" type="submit">Delete this submission</button>
   </form>
 </section>
+<script>
+(function () {
+  var t = document.getElementById('msg-template'), box = document.getElementById('client_message');
+  var texts = {{ C.MESSAGE_TEMPLATES | map(attribute=1) | list | tojson }};
+  t.addEventListener('change', function () {
+    var text = texts[+t.value];
+    if (t.value === '' || text === undefined) return;
+    if (!box.value.trim() || confirm('Replace the current message with this template?')) { box.value = text; box.focus(); }
+    t.value = '';
+  });
+})();
+</script>
 {% endblock %}
