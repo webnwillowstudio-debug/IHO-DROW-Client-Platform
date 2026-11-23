@@ -59,6 +59,8 @@
     },
     3: function () {
       var bad = [];
+      if (!checkedVals('land_owner').length)
+        bad.push([document.getElementById('land-owner-field'), 'Please tell us whose name the land is in.']);
       var a = val('plot_area');
       if (a && (isNaN(a) || +a < 0)) bad.push([form.elements.plot_area, 'Please enter the plot area as a number.']);
       var b = num(val('budget_amount'));
@@ -365,6 +367,7 @@
         ['Files', picked.length ? picked.length + ' file(s) attached' : '']
       ]],
       ['R — Resources', 3, [
+        ['Land in your own name?', checkedVals('land_owner').join('')],
         ['Plot area', area], ['Plot details & site conditions', val('site_conditions')],
         ['Budget', budgetWords.textContent || (val('budget_currency') + ' ' + val('budget_amount'))]
       ]]

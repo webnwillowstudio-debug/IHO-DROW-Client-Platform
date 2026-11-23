@@ -72,9 +72,12 @@ class Store:
         return self.get(sid)
 
     def set_files(self, sid, files):
-        row = self.get(sid)
-        data = row["data"]
-        data["reference_files"] = files
+        self.set_data(sid, "reference_files", files)
+
+    def set_data(self, sid, key, value):
+        """Change one key inside the stored form data (e.g. team_files)."""
+        data = self.get(sid)["data"]
+        data[key] = value
         with self.conn() as c:
             c.execute(
                 "UPDATE submissions SET data_json=? WHERE id=?",
@@ -90,7 +93,13 @@ class Store:
                 (status, options, way_forward, team_notes, ts, sid),
             )
             if ask_reply is not None:
-                c.execute("UPDATE submissions SET ask_reply=? WHERE id=?", ("1" if ask_reply else "", sid))
+                # "" / "1" (YES-No) / "slots". A new kind of question means an
+                # old answer no longer counts, so message_at moves too.
+                c.execute(
+                    "UPDATE submissions SET message_at = CASE WHEN ask_reply <> ? THEN ? ELSE message_at END,"
+                    " ask_reply=? WHERE id=?",
+                    (ask_reply, now_iso_precise(), ask_reply, sid),
+                )
             if client_message is not None:
                 # message_at only moves when the text actually changes
                 c.execute(
@@ -104,7 +113,7 @@ class Store:
             c.execute("DELETE FROM submissions WHERE id=?", (sid,))
 
     def set_reply(self, sid, reply):
-        """Client's answer to the current message (YES / NO), stamped with which message it answers."""
+        """Client's answer to the current message (YES / NO / time slots), stamped with which message it answers."""
         with self.conn() as c:
             c.execute(
                 "UPDATE submissions SET client_reply=?, reply_at=?, reply_for=message_at WHERE id=?",
@@ -213,9 +222,9 @@ class PgStore(Store):
             c.execute("UPDATE submissions SET ref=%s WHERE id=%s", (ref, sid))
         return self.get(sid)
 
-    def set_files(self, sid, files):
+    def set_data(self, sid, key, value):
         data = self.get(sid)["data"]
-        data["reference_files"] = files
+        data[key] = value
         with self.conn() as c:
             c.execute("UPDATE submissions SET data_json=%s WHERE id=%s",
                       (json.dumps(data, ensure_ascii=False), sid))
@@ -229,7 +238,11 @@ class PgStore(Store):
                 (status, options, way_forward, team_notes, ts, sid),
             )
             if ask_reply is not None:
-                c.execute("UPDATE submissions SET ask_reply=%s WHERE id=%s", ("1" if ask_reply else "", sid))
+                c.execute(
+                    "UPDATE submissions SET message_at = CASE WHEN ask_reply <> %s THEN %s ELSE message_at END,"
+                    " ask_reply=%s WHERE id=%s",
+                    (ask_reply, now_iso_precise(), ask_reply, sid),
+                )
             if client_message is not None:
                 c.execute(
                     "UPDATE submissions SET message_at = CASE WHEN client_message <> %s THEN %s ELSE message_at END,"
@@ -242,7 +255,7 @@ class PgStore(Store):
             c.execute("DELETE FROM submissions WHERE id=%s", (sid,))
 
     def set_reply(self, sid, reply):
-        """Client's answer to the current message (YES / NO), stamped with which message it answers."""
+        """Client's answer to the current message (YES / NO / time slots), stamped with which message it answers."""
         with self.conn() as c:
             c.execute(
                 "UPDATE submissions SET client_reply=%s, reply_at=%s, reply_for=message_at WHERE id=%s",

@@ -51,7 +51,9 @@
           <td>{{ d.arch_style }}</td>
           <td><span class="status s-{{ r.status | lower | replace(' ', '-') }}">{{ r.status }}</span>
             {% if r.client_message and r.ask_reply %}<br>
-              {% if r.client_reply and r.reply_for == r.message_at %}
+              {% if r.client_reply and r.reply_for == r.message_at and r.ask_reply == 'slots' %}
+                <span class="reply-tag yes">Meeting times sent</span>
+              {% elif r.client_reply and r.reply_for == r.message_at %}
                 <span class="reply-tag {{ 'yes' if r.client_reply == 'YES' else 'no' }}">Replied {{ r.client_reply }}</span>
               {% else %}<span class="reply-tag wait">Awaiting reply</span>{% endif %}
             {% endif %}</td>

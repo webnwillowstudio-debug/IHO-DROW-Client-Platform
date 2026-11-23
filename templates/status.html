@@ -1,12 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Check your DROW status{% endblock %}
+{% block topbar_right %}
+  {% if row %}<nav class="top-nav"><a class="link keep" href="{{ url_for('status_logout') }}">Log out</a></nav>{% endif %}
+{% endblock %}
 {% block content %}
 <section class="hero">
   <div class="wrap narrow center">
     <p class="eyebrow">Track your DROW</p>
-    <h1>Check your status</h1>
+    <h1>{% if row %}Your DROW{% else %}Check your status{% endif %}</h1>
     <span class="rule"></span>
-    <p class="lead">Enter your reference number to see where your DROW stands and read messages from our technical team.</p>
+    <p class="lead">{% if row %}See where your DROW stands, read messages and open documents from our technical team.{% else %}Enter your reference number to see where your DROW stands and read messages from our technical team.{% endif %}</p>
   </div>
 </section>
 
@@ -28,6 +31,7 @@
       <p class="hint">The phone / WhatsApp number you gave in the form. This keeps your details private.</p>
     </div>
     <button class="btn gold wide" type="submit">Check status</button>
+    <p class="hint center">You stay signed in on this device, so next time it opens straight away.</p>
   </form>
   {% else %}
   <div class="card status-card">
@@ -59,7 +63,22 @@
       {% if row.message_at %}<p class="msg-date">{{ row.message_at | localtime }}</p>{% endif %}
       <div class="msg-body">{{ row.client_message }}</div>
 
-      {% if can_reply %}
+      {% if can_reply and row.ask_reply == 'slots' %}
+      <form class="reply-box" method="post" action="{{ url_for('status_reply') }}" id="slots-form">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <p class="reply-q">Your preferred times for the Google Meet</p>
+        {% if reply_error %}<div class="alert" role="alert">{{ reply_error }}</div>{% endif %}
+        {% for i in [1, 2, 3] %}
+        <div class="field slot">
+          <label for="slot{{ i }}">Option {{ i }}{% if i == 1 %} <i>*</i>{% endif %}</label>
+          <input id="slot{{ i }}" name="slot{{ i }}" type="datetime-local" min="{{ min_slot }}" step="900"
+                 value="{{ request.form.get('slot' ~ i, '') }}" {% if i == 1 %}required{% endif %}>
+        </div>
+        {% endfor %}
+        <p class="hint">Pick up to three dates and times. The meeting takes up to 45 minutes.</p>
+        <button class="btn gold wide" type="submit">Send my preferred times</button>
+      </form>
+      {% elif can_reply %}
       <form class="reply-box" method="post" action="{{ url_for('status_reply') }}">
         <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
         <p class="reply-q">Your reply</p>
@@ -69,6 +88,13 @@
                   onclick="return confirm('Send NO to our team? You can still contact us later.');">No, thank you</button>
         </div>
       </form>
+      {% elif replied and row.ask_reply == 'slots' %}
+      <div class="reply-done yes" role="status">
+        <strong>✓ Your preferred times were sent</strong>
+        <span class="pre">{{ row.client_reply }}</span>
+        <span>{% if just_replied %}Thank you! {% endif %}We will confirm one of them and send you the Google Meet link.</span>
+        <small>{{ row.reply_at | localtime }}</small>
+      </div>
       {% elif replied %}
       <div class="reply-done {{ 'yes' if row.client_reply == 'YES' else 'no' }}" role="status">
         {% if row.client_reply == 'YES' %}
@@ -86,7 +112,35 @@
     {% endif %}
   </div>
 
-  <p class="center"><a class="link" href="{{ url_for('status') }}">Check another reference number</a></p>
+  {% if team_files %}
+  <div class="card msg-card docs-card">
+    <h3 class="msg-head">Documents from our team</h3>
+    <ul class="doc-list">
+      {% for f in team_files | reverse %}
+      <li><a href="{{ url_for('status_file', name=f.path) }}" target="_blank" rel="noopener">
+        <span class="file-ico">{{ f.name.rsplit('.', 1)[-1] | upper }}</span>
+        <span><b>{{ f.name }}</b><small>Shared {{ f.at | localtime }}</small></span>
+        <span class="doc-open">Open ↗</span></a></li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <p class="center muted small-note">Not {{ row.client_name.split(' ')[0] }}? <a class="link" href="{{ url_for('status_logout') }}">Log out</a></p>
   {% endif %}
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var f = document.getElementById('slots-form');
+  if (!f) return;
+  f.addEventListener('submit', function (e) {
+    var b = f.querySelector('button[type=submit]');
+    if (!f.elements.slot1.value) { e.preventDefault(); f.elements.slot1.focus(); return; }
+    b.disabled = true; b.textContent = 'Sending...';
+  });
+})();
+</script>
 {% endblock %}

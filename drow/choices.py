@@ -80,6 +80,14 @@ LAND_STATUS = [
     "I don't have land yet",
 ]
 
+# "Is the land in your own name?" on the Resources step
+LAND_OWNERSHIP = [
+    "Yes, in my own name",
+    "Joint name (me + family)",
+    "No, in a family member's name",
+    "No, other",
+]
+
 AREA_UNITS = ["Cent", "Sq.ft", "Sq.m", "Acre"]
 
 PLOT_SHAPES = ["Rectangle / square", "Irregular", "Corner plot", "Not sure"]
@@ -116,8 +124,32 @@ CLIENT_STATUS = {
     "Closed": ("Closed", "This enquiry is closed. Thank you for choosing Intelligent House Owner."),
 }
 
-# Ready-made messages the team can drop into "Message to client" and then edit
+# How the client can answer a message on the status page
+REPLY_KINDS = {
+    "": "No reply needed",
+    "1": "YES / No buttons",
+    "slots": "3 preferred meeting times",
+}
+
+# Ready-made messages the team can drop into "Message to client" and then edit.
+# (name, text, reply kind). [Client's Name] is filled in automatically.
 MESSAGE_TEMPLATES = [
+    ("After site visit - schedule online meeting", """Dear [Client's Name],
+
+Greetings from Intelligent House.
+
+Our architect recently visited your site and completed the preliminary analysis. We would like to schedule an online meeting via Google Meet (lasting up to 45 minutes) to discuss our initial findings and outline the next steps for your project.
+
+Could you please share three preferred time slots that work best for you over the coming days? Once you confirm, we will send over the meeting link accordingly.
+
+1. Option 1: [Date & Time]
+2. Option 2: [Date & Time]
+3. Option 3: [Date & Time]
+
+Looking forward to your response.
+
+Best regards,
+Team Intelligent House""", "slots"),
     ("Resources gap - confirm before site visit", """Dear Sir,
 
 As per our standard process, the next step is to schedule a site visit by our architect.
@@ -137,5 +169,5 @@ Our architect will visit your site and present the best possible design options 
 
 This entire process, including the site visit, option presentation, and rough conceptual plan, is complimentary.
 
-If neither is an option, we completely understand. Thank you for considering Intelligent House Owner. We sincerely appreciate the opportunity and wish you all the very best."""),
+If neither is an option, we completely understand. Thank you for considering Intelligent House Owner. We sincerely appreciate the opportunity and wish you all the very best.""", "1"),
 ]

@@ -179,6 +179,12 @@
       <legend class="step-head"><span class="badge">R</span><span><b>Resources</b><small>What you have to build with</small></span></legend>
 
       <h3 class="sub">1. Land specifications</h3>
+      <div class="field {% if errors.land_owner %}has-error{% endif %}" id="land-owner-field">
+        <label>Is the land in your own name? <i>*</i></label>
+        {{ pills('land_owner', C.LAND_OWNERSHIP, required=true) }}
+        {{ err('land_owner') }}
+      </div>
+
       <div class="field {% if errors.plot_area %}has-error{% endif %}">
         <label for="plot_area">Plot area <span class="opt">optional</span></label>
         <div class="joined">

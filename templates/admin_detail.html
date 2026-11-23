@@ -33,6 +33,41 @@
 
   <div class="detail-grid">
     <div>
+      <div class="card" id="client-files">
+        <h2 class="band gold-band">Files for the client</h2>
+        <p class="hint">Site visit report, plans, drawings... The client opens them on the status page.</p>
+        {% if d.team_files %}
+        <ul class="doc-list">
+          {% for f in d.team_files | reverse %}
+          <li>
+            <a href="{{ url_for('admin_file', sid=r.id, name=f.path) }}" target="_blank" rel="noopener">
+              <span class="file-ico">{{ f.name.rsplit('.', 1)[-1] | upper }}</span>
+              <span><b>{{ f.name }}</b><small>Shared {{ f.at | localtime }}</small></span>
+            </a>
+            <form method="post" action="{{ url_for('admin_delete_file', sid=r.id) }}"
+                  onsubmit='return confirm({{ ("Remove " ~ f.name ~ "? The client will no longer see it.") | tojson }});'>
+              <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+              <input type="hidden" name="path" value="{{ f.path }}">
+              <button class="link danger-link" type="submit">Remove</button>
+            </form>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        <form id="team-upload" method="post" enctype="multipart/form-data"
+              action="{{ url_for('admin_add_files', sid=r.id) }}"
+              {% if direct_upload %}data-upload-urls="{{ url_for('admin_upload_urls', sid=r.id) }}"{% endif %}>
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <label class="drop small-drop" for="team-files">
+            <input id="team-files" name="files" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,image/*,application/pdf">
+            <span class="drop-icon" aria-hidden="true">＋</span>
+            <span class="drop-text"><b>Choose PDF or photos</b><small>Up to {{ team_max_mb }} MB each</small></span>
+          </label>
+          <p class="hint" id="team-picked"></p>
+          <button class="btn small gold" type="submit" id="team-upload-btn" disabled>Upload &amp; share with client</button>
+        </form>
+      </div>
+
       <div class="card">
         <h2 class="band">Client</h2>
         <dl>
@@ -70,7 +105,8 @@
         <h2 class="band">R — Resources</h2>
         <h3 class="sub">1. Land specifications</h3>
         <dl>
-          {{ row('Plot area', (d.plot_area|string ~ ' ' ~ (d.plot_unit or '')) if d.plot_area is not none else '') }}
+          {{ row('Land in client\'s own name?', d.land_owner) }}
+          {{ row('Plot area',(d.plot_area|string ~ ' ' ~ (d.plot_unit or '')) if d.plot_area is not none else '') }}
           <div class="kv"><dt>Plot details &amp; site conditions</dt><dd class="pre">{{ d.site_conditions | linkify if d.site_conditions else '-' }}</dd></div>
         </dl>
         <h3 class="sub">2. Budget</h3>
@@ -91,7 +127,13 @@
       </div>
       <div class="field client-msg">
         {% set replied = r.client_reply and r.reply_for == r.message_at %}
-        {% if r.client_message and r.ask_reply and replied %}
+        {% if r.client_message and r.ask_reply == 'slots' and replied %}
+          <div class="reply-flag yes">
+            <strong>✓ Client's preferred meeting times</strong>
+            <span class="pre">{{ r.client_reply }}</span>
+            <span>{{ r.reply_at | localtime }}, on the status page. Confirm one and send the Meet link.</span>
+          </div>
+        {% elif r.client_message and r.ask_reply and replied %}
           <div class="reply-flag {{ 'yes' if r.client_reply == 'YES' else 'no' }}">
             <strong>{% if r.client_reply == 'YES' %}✓ Client replied YES{% else %}Client replied NO{% endif %}</strong>
             <span>{{ r.reply_at | localtime }}, on the status page</span>
@@ -99,17 +141,19 @@
         {% elif r.client_message and r.ask_reply %}
           <div class="reply-flag wait">
             <strong>Waiting for the client's reply</strong>
-            <span>{% if r.client_reply %}Earlier they replied {{ r.client_reply }} ({{ r.reply_at | localtime }}) to a previous message.{% else %}No reply yet.{% endif %}</span>
+            <span>{% if r.client_reply %}Earlier they replied {{ r.client_reply | replace('\n', ' · ') }} ({{ r.reply_at | localtime }}) to a previous message.{% else %}No reply yet.{% endif %}</span>
           </div>
         {% endif %}
         <label for="client_message">Message to client <span class="opt">the client sees this on the status page</span></label>
         <select id="msg-template" aria-label="Insert a ready-made message">
           <option value="">Insert a ready-made message...</option>
-          {% for name, text in C.MESSAGE_TEMPLATES %}<option value="{{ loop.index0 }}">{{ name }}</option>{% endfor %}
+          {% for name, text, kind in C.MESSAGE_TEMPLATES %}<option value="{{ loop.index0 }}">{{ name }}</option>{% endfor %}
         </select>
         <textarea id="client_message" name="client_message" rows="10" maxlength="6000" placeholder="Write an update for the client. Leave empty to show only the status.">{{ r.client_message or '' }}</textarea>
-        <label class="check small"><input type="checkbox" id="ask_reply" name="ask_reply" value="1" {% if r.ask_reply %}checked{% endif %}>
-          <span>Ask the client to reply <b>YES</b> / <b>No</b> (buttons under the message)</span></label>
+        <label for="ask_reply" class="small-label">Client's reply under the message</label>
+        <select id="ask_reply" name="ask_reply">
+          {% for k, label in C.REPLY_KINDS.items() %}<option value="{{ k }}" {% if (r.ask_reply or '') == k %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
         <p class="hint">Client checks it at <b>{{ url_for('status', _external=True) }}</b> with <b>{{ r.ref }}</b> + last 4 digits of their phone.{% if r.message_at %} Message last changed {{ r.message_at | localtime }}.{% endif %}</p>
       </div>
       <div class="field">
@@ -137,15 +181,73 @@
 <script>
 (function () {
   var t = document.getElementById('msg-template'), box = document.getElementById('client_message');
-  var texts = {{ C.MESSAGE_TEMPLATES | map(attribute=1) | list | tojson }};
+  var templates = {{ C.MESSAGE_TEMPLATES | tojson }};
+  var clientName = {{ d.client_name | tojson }};
   t.addEventListener('change', function () {
-    var text = texts[+t.value];
-    if (t.value === '' || text === undefined) return;
+    var tpl = templates[+t.value];
+    if (t.value === '' || !tpl) return;
     if (!box.value.trim() || confirm('Replace the current message with this template?')) {
-      box.value = text; box.focus();
-      if (/reply\s+.?YES/i.test(text)) document.getElementById('ask_reply').checked = true;
+      box.value = tpl[1].split("[Client's Name]").join(clientName); box.focus();
+      document.getElementById('ask_reply').value = tpl[2] || '';
     }
     t.value = '';
+  });
+})();
+
+/* Files for the client: upload (straight to storage in cloud mode, with progress) */
+(function () {
+  var form = document.getElementById('team-upload');
+  var input = document.getElementById('team-files'), btn = document.getElementById('team-upload-btn');
+  var info = document.getElementById('team-picked'), MAX = {{ team_max_mb }} * 1048576;
+  function picked() { return Array.prototype.slice.call(input.files || []); }
+  input.addEventListener('change', function () {
+    var f = picked(), big = f.filter(function (x) { return x.size > MAX; });
+    info.textContent = big.length ? big.map(function (x) { return x.name; }).join(', ') + ' is larger than {{ team_max_mb }} MB.'
+      : f.map(function (x) { return x.name + ' (' + (x.size / 1048576).toFixed(1) + ' MB)'; }).join(', ');
+    btn.disabled = !f.length || big.length > 0;
+  });
+  form.addEventListener('submit', function (e) {
+    btn.disabled = true; btn.textContent = 'Uploading...';
+    var signUrl = form.getAttribute('data-upload-urls');
+    if (!signUrl) return; // local mode: normal form post
+    e.preventDefault();
+    var files = picked(), total = files.reduce(function (a, f) { return a + f.size; }, 0) || 1;
+    var sent = files.map(function () { return 0; });
+    function report() {
+      var pct = Math.round(sent.reduce(function (a, b) { return a + b; }, 0) / total * 100);
+      btn.textContent = 'Uploading... ' + pct + '%';
+    }
+    fetch(signUrl, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': form.elements._csrf.value },
+      body: JSON.stringify({ files: files.map(function (f) { return { name: f.name, size: f.size }; }) })
+    }).then(function (r) { if (!r.ok) throw new Error('sign'); return r.json(); })
+      .then(function (res) {
+        return Promise.all(files.map(function (f, i) {
+          var slot = res.files[i];
+          if (!slot) return null;
+          return new Promise(function (resolve, reject) {
+            var x = new XMLHttpRequest();
+            x.open('PUT', slot.url);
+            x.setRequestHeader('Content-Type', f.type || 'application/octet-stream');
+            x.setRequestHeader('x-upsert', 'false');
+            x.upload.onprogress = function (ev) { if (ev.lengthComputable) { sent[i] = ev.loaded; report(); } };
+            x.onload = function () {
+              if (x.status < 200 || x.status >= 300) return reject(new Error('upload'));
+              var h = document.createElement('input');
+              h.type = 'hidden'; h.name = 'uploaded'; h.value = slot.path;
+              form.appendChild(h); resolve();
+            };
+            x.onerror = x.onabort = function () { reject(new Error('upload')); };
+            x.send(f);
+          });
+        }));
+      })
+      .then(function () { input.disabled = true; HTMLFormElement.prototype.submit.call(form); },
+            function () {
+              btn.disabled = false; btn.textContent = 'Upload & share with client';
+              info.textContent = 'Upload failed. Check the connection and try again.';
+            });
   });
 })();
 </script>

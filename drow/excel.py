@@ -101,6 +101,7 @@ COLUMNS = [
     ("Design References & Notes", 45, lambda r, d: d.get("design_notes")),
     ("Reference Files", 30, lambda r, d: j(d.get("reference_files"))),
     # R - Resources
+    ("Land in Own Name?", 22, lambda r, d: d.get("land_owner")),
     ("Plot Area", 10, lambda r, d: d.get("plot_area")),
     ("Area Unit", 9, lambda r, d: d.get("plot_unit")),
     ("Plot Details & Site Conditions", 45, lambda r, d: d.get("site_conditions")),
@@ -119,8 +120,8 @@ COLUMNS = [
 BANDS = [
     ("CLIENT", 1, 6, PURPLE),
     ("D - DREAM HOME", 7, 11, PURPLE),
-    ("R - RESOURCES", 12, 16, PURPLE),
-    ("O / W - OUR TEAM", 17, 22, GOLD),
+    ("R - RESOURCES", 12, 17, PURPLE),
+    ("O / W - OUR TEAM", 18, 23, GOLD),
 ]
 
 
@@ -313,6 +314,7 @@ def build_client(row, path):
     band("R - RESOURCES")
     sub("1. LAND SPECIFICATIONS")
     area = d.get("plot_area")
+    kv("Land in Own Name?", d.get("land_owner"))
     kv("Plot Area (Cent / Sq.ft)", f"{area} {d.get('plot_unit') or ''}".strip() if area else "")
     kv("Plot Details & Site Conditions", "")
     block(d.get("site_conditions"))

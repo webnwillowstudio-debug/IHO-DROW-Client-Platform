@@ -18,7 +18,7 @@ import threading
 import time
 import uuid
 from collections import defaultdict, deque
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from functools import wraps
 
@@ -72,6 +72,8 @@ REF_PREFIX = os.environ.get("REF_PREFIX", "IHO")
 ALLOWED_EXT = {"jpg", "jpeg", "png", "webp", "heic", "pdf"}
 MAX_FILES = 6
 MAX_FILE_MB = 8
+TEAM_MAX_FILE_MB = 25  # site visit reports with photos can be big
+CLIENT_LOGIN_DAYS = 180  # client stays signed in to the status page this long
 
 app = Flask(__name__)
 app.config.update(
@@ -79,6 +81,7 @@ app.config.update(
     MAX_CONTENT_LENGTH=(MAX_FILES * MAX_FILE_MB + 2) * 1024 * 1024,
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
+    PERMANENT_SESSION_LIFETIME=timedelta(days=CLIENT_LOGIN_DAYS),
     SESSION_COOKIE_SECURE=ON_VERCEL or os.environ.get("COOKIE_SECURE", "0") == "1",
 )
 if ON_VERCEL and not os.environ.get("SECRET_KEY"):
@@ -265,6 +268,7 @@ def validate_form():
         # Resources
         "plot_area": number(f.get("plot_area"), 0, 10_000_000),
         "plot_unit": pick(f.get("plot_unit"), C.AREA_UNITS),
+        "land_owner": pick(f.get("land_owner"), C.LAND_OWNERSHIP),
         "site_conditions": clean(f.get("site_conditions"), 3000),
         "budget_currency": pick(f.get("budget_currency"), C.CURRENCIES),
         "budget_amount": number(f.get("budget_amount"), 0, 1e13),
@@ -284,6 +288,8 @@ def validate_form():
         e["amenities"] = "Please choose at least one amenity you want."
     if not data["arch_style"]:
         e["arch_style"] = "Please choose a design style (or 'Not sure')."
+    if not data["land_owner"]:
+        e["land_owner"] = "Please tell us whose name the land is in."
     if data["plot_area"] == "bad":
         e["plot_area"] = "Please enter the plot area as a number."
     if data["plot_area"] not in (None, "bad") and not data["plot_unit"]:
@@ -381,11 +387,15 @@ def notify_reply(row):
         return
     try:
         msg = EmailMessage()
-        msg["Subject"] = f"Client replied {row['client_reply']}: {row['ref']} - {row['client_name']}"
+        slots = row.get("ask_reply") == "slots"
+        what = "sent meeting times" if slots else f"replied {row['client_reply']}"
+        msg["Subject"] = f"Client {what}: {row['ref']} - {row['client_name']}"
         msg["From"] = os.environ.get("SMTP_FROM") or os.environ.get("SMTP_USER", "")
         msg["To"] = to
-        msg.set_content(f"{row['client_name']} ({row['phone']}) replied {row['client_reply']} "
-                        "to your message on the status page.\n\nOpen the admin panel to follow up.")
+        body = f"{row['client_name']} ({row['phone']}) {what} on the status page."
+        if slots:
+            body += "\n\n" + row["client_reply"]
+        msg.set_content(body + "\n\nOpen the admin panel to follow up.")
         with smtplib.SMTP(host, int(os.environ.get("SMTP_PORT", "587")), timeout=20) as s:
             s.starttls()
             if os.environ.get("SMTP_USER"):
@@ -424,6 +434,7 @@ def submit():
     notify_team(store.get(row["id"]))
     session["last_ref"] = row["ref"]
     session["last_name"] = data["client_name"].split(" ")[0]
+    client_sign_in(row["ref"])  # "Check my status" opens straight away
     return redirect(url_for("thanks"))
 
 
@@ -459,21 +470,49 @@ def phone_tail(phone, n=4):
     return "".join(ch for ch in (phone or "") if ch.isdigit())[-n:]
 
 
-def render_status(row=None, ref="", error=None, just_replied=False):
+def client_sign_in(ref):
+    """Remember the client in this browser so they don't type the ref + phone every visit."""
+    session["status_ref"] = ref
+    session.permanent = True
+
+
+def signed_in_row():
+    ref = session.get("status_ref")
+    row = store.get_by_ref(ref) if ref else None
+    if ref and not row:  # the submission was deleted
+        session.pop("status_ref", None)
+    return row
+
+
+def has_answer(row):
+    return bool(row.get("client_reply") and row.get("reply_for") == row.get("message_at"))
+
+
+def local_now():
+    return datetime.now(TZ).replace(tzinfo=None) if TZ else datetime.now()
+
+
+def render_status(row=None, ref="", error=None, just_replied=False, reply_error=None):
     label, note = C.CLIENT_STATUS.get(row["status"], (row["status"], "")) if row else ("", "")
-    replied = bool(row and row.get("client_reply") and row.get("reply_for") == row.get("message_at"))
+    replied = bool(row and has_answer(row))
     can_reply = bool(row and row.get("ask_reply") and row.get("client_message") and not replied)
     return render_template("status.html", ref=ref, row=row, error=error, label=label, note=note,
                            steps=C.STATUSES[:4], C=C, replied=replied, can_reply=can_reply,
-                           just_replied=just_replied)
+                           just_replied=just_replied, reply_error=reply_error,
+                           team_files=(row["data"].get("team_files") or []) if row else [],
+                           min_slot=local_now().strftime("%Y-%m-%dT00:00"))
 
 
 @app.route("/status", methods=["GET", "POST"])
 def status():
     """Client looks up their DROW: reference number + last 4 digits of their phone.
-    Refs are sequential, so the phone check stops people reading each other's updates."""
+    Refs are sequential, so the phone check stops people reading each other's updates.
+    After one successful lookup this browser stays signed in (client_sign_in)."""
     ref = clean(request.values.get("ref"), 40).upper().replace(" ", "")
     if request.method == "GET":
+        row = signed_in_row()
+        if row and (not ref or ref == row["ref"]):
+            return render_status(row, row["ref"], just_replied=bool(session.pop("just_replied", False)))
         return render_status(ref=ref)
     check_csrf()
     if rate_limited(("status", client_ip()), 10, 600):
@@ -483,29 +522,77 @@ def status():
         ref = f"{REF_PREFIX}-{datetime.now().year}-{int(ref):04d}"
     found = store.get_by_ref(ref) if ref else None
     if found and len(tail) == 4 and hmac.compare_digest(tail, phone_tail(found["phone"])):
-        session["status_ref"] = found["ref"]  # lets this visitor answer the message
-        return render_status(found, ref)
+        client_sign_in(found["ref"])
+        return redirect(url_for("status"))  # a refresh won't re-send the form
     return render_status(ref=ref, error="We could not find a DROW with that reference number and phone. "
                                         "Please check both and try again.")
 
 
+@app.get("/status/logout")
+def status_logout():
+    for k in ("status_ref", "just_replied", "last_ref", "last_name"):
+        session.pop(k, None)
+    if not session.get("admin"):
+        session.permanent = False
+    return redirect(url_for("status"))
+
+
+def read_slots():
+    """Up to 3 'YYYY-MM-DDTHH:MM' values from the form -> readable lines, or an error."""
+    out = []
+    for i in (1, 2, 3):
+        raw = clean(request.form.get(f"slot{i}"), 20)
+        if not raw:
+            continue
+        try:
+            dt = datetime.strptime(raw, "%Y-%m-%dT%H:%M")
+        except ValueError:
+            return None, "Please pick a date and time for each option."
+        if dt < local_now() - timedelta(hours=1):
+            return None, "Please pick times in the coming days, not in the past."
+        out.append(f"Option {len(out) + 1}: {dt.strftime('%a %d %b %Y, %I:%M %p')}")
+    if not out:
+        return None, "Please pick at least one date and time."
+    return "\n".join(out), None
+
+
 @app.post("/status/reply")
 def status_reply():
-    """Client taps YES / NO under the team's message. Only works right after a
-    successful lookup in the same browser session."""
+    """Client answers the team's message: YES / NO, or their preferred meeting times.
+    Only for the DROW this browser is signed in to."""
     check_csrf()
     if rate_limited(("reply", client_ip()), 10, 600):
         abort(429)
-    ref = session.get("status_ref")
-    row = store.get_by_ref(ref) if ref else None
+    row = signed_in_row()
     if not row:
         return redirect(url_for("status"))
-    answer = {"yes": "YES", "no": "NO"}.get(request.form.get("answer", "").lower())
-    replied = row.get("client_reply") and row.get("reply_for") == row.get("message_at")
-    if answer and row.get("ask_reply") and row.get("client_message") and not replied:
-        store.set_reply(row["id"], answer)
-        notify_reply(store.get(row["id"]))
-    return render_status(store.get(row["id"]), ref, just_replied=bool(answer))
+    if row.get("ask_reply") and row.get("client_message") and not has_answer(row):
+        if row["ask_reply"] == "slots":
+            answer, err = read_slots()
+            if err:
+                return render_status(row, row["ref"], reply_error=err), 422
+        else:
+            answer = {"yes": "YES", "no": "NO"}.get(request.form.get("answer", "").lower())
+        if answer:
+            store.set_reply(row["id"], answer)
+            notify_reply(store.get(row["id"]))
+            session["just_replied"] = True
+    return redirect(url_for("status"))
+
+
+@app.get("/status/file/<path:name>")
+def status_file(name):
+    """A document the team shared with this client (e.g. the site visit report)."""
+    row = signed_in_row()
+    if not row or name not in [f["path"] for f in row["data"].get("team_files") or []]:
+        abort(404)
+    return serve_stored(row, name)
+
+
+def serve_stored(row, name):
+    if cloud_files:
+        return redirect(cloud_files.signed_download_url(name))
+    return send_from_directory(os.path.join(UPLOAD_DIR, row["ref"]), name)
 
 
 @app.get("/healthz")
@@ -575,12 +662,13 @@ def admin_detail(sid):
             clean(request.form.get("way_forward"), 8000),
             clean(request.form.get("team_notes"), 4000),
             clean(request.form.get("client_message"), 6000),
-            bool(request.form.get("ask_reply")),
+            pick(request.form.get("ask_reply", ""), C.REPLY_KINDS),
         )
         sync_excel(sid)
         flash("Saved. The Excel files are updated.")
         return redirect(url_for("admin_detail", sid=sid))
-    return render_template("admin_detail.html", r=with_local(row), d=row["data"], C=C)
+    return render_template("admin_detail.html", r=with_local(row), d=row["data"], C=C,
+                           direct_upload=bool(cloud_files), team_max_mb=TEAM_MAX_FILE_MB)
 
 
 @app.post("/admin/c/<int:sid>/delete")
@@ -592,7 +680,8 @@ def admin_delete(sid):
         store.delete(sid)
         if cloud_files:
             try:
-                cloud_files.delete(row["data"].get("reference_files") or [])
+                cloud_files.delete((row["data"].get("reference_files") or [])
+                                   + [f["path"] for f in row["data"].get("team_files") or []])
             except Exception as exc:
                 app.logger.warning("Could not delete stored files: %s", exc)
         p = os.path.join(CLIENT_XLSX_DIR, client_file_name(row))
@@ -626,11 +715,93 @@ def admin_client_excel(sid):
 @admin_required
 def admin_file(sid, name):
     row = store.get(sid)
-    if not row or name not in (row["data"].get("reference_files") or []):
+    team = [f["path"] for f in row["data"].get("team_files") or []] if row else []
+    if not row or name not in (row["data"].get("reference_files") or []) + team:
         abort(404)
-    if cloud_files:
-        return redirect(cloud_files.signed_download_url(name))
-    return send_from_directory(os.path.join(UPLOAD_DIR, row["ref"]), name)
+    return serve_stored(row, name)
+
+
+# ---- documents the team shares with the client (site visit report, plans ...)
+@app.post("/admin/c/<int:sid>/upload-urls")
+@admin_required
+def admin_upload_urls(sid):
+    """Cloud mode: signed URLs so the browser uploads straight to storage
+    (Vercel refuses requests over 4.5 MB through the server)."""
+    row = store.get(sid)
+    if not cloud_files or not row:
+        abort(404)
+    check_csrf()
+    out, issued = [], []
+    for f in ((request.get_json(silent=True) or {}).get("files") or [])[:MAX_FILES]:
+        name = upload_name(str(f.get("name", "")))
+        size = f.get("size") or 0
+        if not name or not isinstance(size, int) or size > TEAM_MAX_FILE_MB * 1024 * 1024:
+            out.append(None)
+            continue
+        path = f"team/{row['ref']}/{uuid.uuid4().hex[:12]}/{name}"
+        out.append({"path": path, "url": cloud_files.signed_upload_url(path)})
+        issued.append(path)
+    session["issued_team_uploads"] = (session.get("issued_team_uploads", []) + issued)[-30:]
+    return jsonify(files=out)
+
+
+@app.post("/admin/c/<int:sid>/files")
+@admin_required
+def admin_add_files(sid):
+    check_csrf()
+    row = store.get(sid)
+    if not row:
+        abort(404)
+    added = []
+    if cloud_files:  # already in storage; only accept paths this server signed
+        issued = session.get("issued_team_uploads", [])
+        added = [p for p in dict.fromkeys(request.form.getlist("uploaded")) if p in issued]
+        session["issued_team_uploads"] = [p for p in issued if p not in added]
+    else:
+        folder = os.path.join(UPLOAD_DIR, row["ref"], "team")
+        for fs in [x for x in request.files.getlist("files") if x and x.filename][:MAX_FILES]:
+            name = upload_name(fs.filename)
+            fs.stream.seek(0, os.SEEK_END)
+            size = fs.stream.tell()
+            fs.stream.seek(0)
+            if not name or size > TEAM_MAX_FILE_MB * 1024 * 1024:
+                continue
+            os.makedirs(folder, exist_ok=True)
+            fs.save(os.path.join(folder, name))
+            added.append(f"team/{name}")
+    if added:
+        at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        files = (row["data"].get("team_files") or []) + [
+            {"path": p, "name": p.rsplit("/", 1)[-1][7:], "at": at} for p in added]
+        store.set_data(sid, "team_files", files)
+        flash(f"Uploaded {len(added)} file(s). The client can open them on the status page.")
+    else:
+        flash(f"No file was uploaded. Use photos or PDF, up to {TEAM_MAX_FILE_MB} MB each.")
+    return redirect(url_for("admin_detail", sid=sid) + "#client-files")
+
+
+@app.post("/admin/c/<int:sid>/files/delete")
+@admin_required
+def admin_delete_file(sid):
+    check_csrf()
+    row = store.get(sid)
+    if not row:
+        abort(404)
+    path = request.form.get("path", "")
+    files = row["data"].get("team_files") or []
+    if path in [f["path"] for f in files]:
+        store.set_data(sid, "team_files", [f for f in files if f["path"] != path])
+        try:
+            if cloud_files:
+                cloud_files.delete([path])
+            else:
+                full = os.path.join(UPLOAD_DIR, row["ref"], path)
+                if os.path.isfile(full):
+                    os.remove(full)
+        except Exception as exc:
+            app.logger.warning("Could not delete stored file: %s", exc)
+        flash("File removed.")
+    return redirect(url_for("admin_detail", sid=sid) + "#client-files")
 
 
 @app.errorhandler(413)
