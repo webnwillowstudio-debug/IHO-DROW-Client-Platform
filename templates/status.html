@@ -117,10 +117,16 @@
     <h3 class="msg-head">Documents from our team</h3>
     <ul class="doc-list">
       {% for f in team_files | reverse %}
-      <li><a href="{{ url_for('status_file', name=f.path) }}" target="_blank" rel="noopener">
-        <span class="file-ico">{{ f.name.rsplit('.', 1)[-1] | upper }}</span>
-        <span><b>{{ f.name }}</b><small>Shared {{ f.at | localtime }}</small></span>
-        <span class="doc-open">Open ↗</span></a></li>
+      <li class="doc-item">
+        <a href="{{ url_for('status_file', name=f.path) }}" target="_blank" rel="noopener">
+          <span class="file-ico">{{ f.name.rsplit('.', 1)[-1] | upper }}</span>
+          <span><b>{{ f.name }}</b><small>Shared {{ f.at | localtime }}</small></span>
+        </a>
+        <div class="doc-actions">
+          <a class="btn small ghost" href="{{ url_for('status_file', name=f.path) }}" target="_blank" rel="noopener">Open</a>
+          <a class="btn small gold" href="{{ url_for('status_file', name=f.path, download=1) }}" download="{{ f.name }}">⬇ Download</a>
+        </div>
+      </li>
       {% endfor %}
     </ul>
   </div>

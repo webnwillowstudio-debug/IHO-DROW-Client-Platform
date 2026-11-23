@@ -584,15 +584,17 @@ def status_reply():
 def status_file(name):
     """A document the team shared with this client (e.g. the site visit report)."""
     row = signed_in_row()
-    if not row or name not in [f["path"] for f in row["data"].get("team_files") or []]:
+    f = next((f for f in row["data"].get("team_files") or [] if f["path"] == name), None) if row else None
+    if not f:
         abort(404)
-    return serve_stored(row, name)
+    return serve_stored(row, name, download_as=f["name"] if request.args.get("download") else None)
 
 
-def serve_stored(row, name):
+def serve_stored(row, name, download_as=None):
     if cloud_files:
-        return redirect(cloud_files.signed_download_url(name))
-    return send_from_directory(os.path.join(UPLOAD_DIR, row["ref"]), name)
+        return redirect(cloud_files.signed_download_url(name, download_as=download_as))
+    return send_from_directory(os.path.join(UPLOAD_DIR, row["ref"]), name,
+                               as_attachment=bool(download_as), download_name=download_as)
 
 
 @app.get("/healthz")

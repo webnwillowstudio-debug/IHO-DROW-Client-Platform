@@ -411,12 +411,26 @@ dl { margin: 0; }
 .reply-done .pre, .reply-flag .pre { white-space: pre-line; font-weight: 600; margin: 4px 0; }
 .doc-list { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 8px; }
 .doc-list li { display: flex; align-items: center; gap: 10px; }
-.doc-list a { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; text-decoration: none; color: var(--ink); background: #fff; }
-.doc-list a:hover { border-color: var(--purple-500); }
+.doc-list > li > a { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; text-decoration: none; color: var(--ink); background: #fff; }
+.doc-list > li > a:hover { border-color: var(--purple-500); }
 .doc-list .file-ico { width: 44px; height: 44px; aspect-ratio: auto; flex: 0 0 auto; font-size: 11px; }
-.doc-list a > span:nth-child(2) { flex: 1; min-width: 0; }
+.doc-list > li > a > span:nth-child(2) { flex: 1; min-width: 0; }
 .doc-list b { display: block; font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .doc-list small { color: var(--muted); font-size: 12px; }
 .doc-open { font-size: 13px; font-weight: 600; color: var(--purple); white-space: nowrap; }
 .small-drop { margin: 14px 0 8px; padding: 12px; }
 #client-files .btn { margin-top: 4px; }
+
+/* iOS Safari gives date/time pickers a fixed minimum width that ignores width:100%,
+   which pushed the whole status page wider than the phone screen */
+input[type=datetime-local], input[type=date], input[type=time] {
+  display: block; min-width: 0; max-width: 100%; box-sizing: border-box; text-align: left;
+}
+input[type=datetime-local]::-webkit-date-and-time-value { text-align: left; margin: 0; }
+.slot, .msg-card, .status-shell { min-width: 0; max-width: 100%; }
+main { overflow-x: clip; } /* safety net: nothing can make the page scroll sideways */
+.doc-actions { display: flex; gap: 8px; margin-top: 8px; }
+.doc-actions .btn { flex: 1; justify-content: center; }
+.doc-list li.doc-item { display: block; }
+.doc-list { grid-template-columns: minmax(0, 1fr); } .doc-list li { min-width: 0; }
+.doc-list b { white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }

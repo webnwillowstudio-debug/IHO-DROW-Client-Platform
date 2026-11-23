@@ -51,9 +51,13 @@ class SupabaseStorage:
         res = self._call("POST", f"/object/upload/sign/{self.bucket}/{self._q(path)}", {})
         return self.base + res["url"]
 
-    def signed_download_url(self, path, seconds=300):
+    def signed_download_url(self, path, seconds=300, download_as=None):
+        """download_as: a file name -> storage sends it as an attachment (Save) instead of opening it."""
         res = self._call("POST", f"/object/sign/{self.bucket}/{self._q(path)}", {"expiresIn": seconds})
-        return self.base + res["signedURL"]
+        url = self.base + res["signedURL"]
+        if download_as:
+            url += ("&" if "?" in url else "?") + "download=" + urllib.parse.quote(download_as)
+        return url
 
     def delete(self, paths):
         if paths:
